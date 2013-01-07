@@ -131,7 +131,8 @@ Desktop.ini
 ## Python
 #############
 
-
+#Cache
+__pycache__/*.*
 
 # Packages
 *.egg
