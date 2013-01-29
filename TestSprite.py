@@ -24,9 +24,8 @@ NB_MONSTER_MAX = 35
 
 gameSurface = pygame.display.set_mode((NBSPRITX_DISP*SPRITEWIDTH, NBSPRITY_DISP*SPRITEHEIGHT), 0, 32)
 pygame.display.set_caption('Sprites and Sound')
-
 entireWindowSurface = pygame.Surface((NBSPRITX*SPRITEWIDTH, NBSPRITY*SPRITEHEIGHT))
-                               
+
 spriteImage = pygame.image.load('resources/images/player.png')
 spriteImage_monstre = pygame.image.load('resources/images/monster.png')
 
@@ -72,7 +71,7 @@ for i in range(NB_MONSTER_MAX):
     thespritemonster_right.play()
     thespritemonster_left.play()
     thespritemonster_down.play()
-    
+
     a_monster = ({'rect':pygame.Rect(0,0,SPRITEWIDTH-2,SPRITEHEIGHT-2),
                   'sprite_up':thespritemonster_up,
                   'sprite_down':thespritemonster_down,
@@ -87,7 +86,7 @@ for i in range(NB_MONSTER_MAX):
 tiles = []
 possibleBeginPlace=[]
 somename= dMapModule.dMap()
-somename.makeMap(NBSPRITX,NBSPRITY,30,0,80) 
+somename.makeMap(NBSPRITX,NBSPRITY,30,0,80)
 for y in range(NBSPRITY):
         for x in range(NBSPRITX):
                 if somename.mapArr[y][x]==0:
@@ -97,7 +96,7 @@ for y in range(NBSPRITY):
                 if somename.mapArr[y][x]==2:
                         tiles.append(Rect(x*SPRITEWIDTH, y*SPRITEHEIGHT, SPRITEWIDTH-1, SPRITEHEIGHT-1))
 #                if somename.mapArr[y][x]==3 or somename.mapArr[y][x]==4 or somename.mapArr[y][x]==5:
-                    
+
 
 
 #print(somename)
@@ -119,7 +118,7 @@ for monster in monsters:
     monster['rect'].left = possibleBeginPlace[listIndex][0]*SPRITEWIDTH
     monster['rect'].top = possibleBeginPlace[listIndex][1]*SPRITEHEIGHT
     listIndex += 1
-    
+
 
 anim = animObj_RIGHT
 kill = 0
@@ -174,22 +173,22 @@ while True:
     if moveDown:
         playerRect.top += 3
         if playerRect.collidelist(tiles) != -1:
-            playerRect.top -= 3                
+            playerRect.top -= 3
         anim = animObj_DOWN
     if moveUp:
         playerRect.top -= 3
         if playerRect.collidelist(tiles) != -1:
-            playerRect.top += 3                
+            playerRect.top += 3
         anim = animObj_UP
     if moveLeft:
         playerRect.left -= 3
         if playerRect.collidelist(tiles) != -1:
-            playerRect.left += 3                
+            playerRect.left += 3
         anim = animObj_LEFT
     if moveRight:
         playerRect.left += 3
         if playerRect.collidelist(tiles) != -1:
-            playerRect.left -= 3                
+            playerRect.left -= 3
         anim = animObj_RIGHT
 
     # TEST COLLISION monster/player
@@ -213,7 +212,7 @@ while True:
     #player anim
     anim.blit(entireWindowSurface, playerRect)
 
-    
+
     # MONSTER ANIM
     for monster in monsters:
         if monster['rect'].collidelist(tiles) != -1:
@@ -223,7 +222,7 @@ while True:
             monster['rect'].top += monster['speedy']
         else:
             recttest = monster['rect'].inflate(5,5)
-            
+
             speedx = min(max(-4,monster['speedx'] + random.randint(-1,1)), 4)
             speedy = min(max(-4,monster['speedy'] + random.randint(-1,1)), 4)
             recttest.left += speedx
@@ -235,7 +234,7 @@ while True:
             else:
                 monster['rect'].left += monster['speedx']
                 monster['rect'].top += monster['speedy']
-                
+
         if monster['rect'].colliderect(playableRect):
             # affichage
             if monster['speedx'] > monster['speedy']:
@@ -267,10 +266,10 @@ while True:
                     goOn = False
         if goOn:
             shoot['posx'] = shoot['speedx'] + shoot['posx']
-            shoot['posy'] = shoot['speedy'] + shoot['posy']           
+            shoot['posy'] = shoot['speedy'] + shoot['posy']
             if shootRec.colliderect(playableRect):
                 pygame.draw.circle(entireWindowSurface, WHITE, (shoot['posx'], shoot['posy']), shoot['radius'])
-            
+
 
     # PAINT WALL
     for wall in tiles:
@@ -281,11 +280,11 @@ while True:
         entireWindowSurface.fill(RED, treasure)
 
     #SET THE GAME
-    gameSurface.blit(playableSurface, pygame.Rect(0,0,NBSPRITX_DISP*SPRITEWIDTH, NBSPRITY_DISP*SPRITEHEIGHT)) 
+    gameSurface.blit(playableSurface, pygame.Rect(0,0,NBSPRITX_DISP*SPRITEWIDTH, NBSPRITY_DISP*SPRITEHEIGHT))
     if kill == nbmonster or treasure.colliderect(playerRect):
         pygame.quit()
         sys.exit()
 
-    
+
     pygame.display.update()
     mainClock.tick(40)

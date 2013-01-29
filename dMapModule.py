@@ -6,6 +6,7 @@ class dMap:
    def __init__(self):
        self.roomList=[]
        self.cList=[]
+
    def makeMap(self,xsize,ysize,fail,b1,mrooms):
        """Generate random layout of rooms, corridors and other features"""
        #makeMap can be modified to accept arguments for values of failed, and percentile of features.
@@ -15,7 +16,7 @@ class dMap:
            self.mapArr.insert(y,[])
            for x in range(xsize):
                (self.mapArr[y]).insert(x,1.0)
-               
+
        w,l,t=self.makeRoom()
        while len(self.roomList)==0:
            y=randrange(ysize-1-l)+1
