@@ -1,3 +1,5 @@
+#Utilities.py module
+
 # CONSTANT and UTILITIES FILES
 import pygame
 
@@ -5,8 +7,8 @@ import pygame
 SPRITEWIDTH = 24 # Ref for the default sprite size
 SPRITEHEIGHT = 32 # Ref for the default sprite size
 SPRITEDELAY = 0.1 # Ref for the default sprite delay
-NBTILTEX = 300 # Define the world game max size (unit: a sprite width) 
-NBTITLEY = 200 # Define the world game max size (unit: a sprite height)
+NBTILEX = 30 # Define the world game max size (unit: a sprite width) 
+NBTILEY = 20 # Define the world game max size (unit: a sprite height)
 NBSPRITX_DISP = 30 # Define how many sprites should be displayed on screen (unit: sprite)
 NBSPRITY_DISP = 20 # Define how many sprites should be displayed on screen (unit: sprite)
 
@@ -19,11 +21,11 @@ def convertTilePosToScreenPos(tilex, tiley):
         The screen index returned in the top left corner position """
     return (tilex * SPRITEWIDTH, tiley * SPRITEHEIGHT)
 
-def convertScreenPosToTilePos(pox, poy):
+def convertScreenPosToTilePos(posx, posy):
     """ returns the x,y coordinates of the tile[x][y] to which the screen point belongs
 returns -1,-1 if the pos is out of the screen coordinate
     """
-    if posx > SPRITEWIDTH * NBTILTEX or posy > SPRITEHEIGHT * NBTILTEY:
+    if posx > SPRITEWIDTH * NBTILEX or posy > SPRITEHEIGHT * NBTILEY:
         print("convertScreenPosToTilePos error: posx or posy out of bound")
         return (-1,-1)
     return (int(posx/SPRITEWIDTH), int(posy/SPRITEHEIGHT))
