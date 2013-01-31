@@ -9,7 +9,7 @@
 # Licence:     <your licence>
 #-------------------------------------------------------------------------------
 
-import pygame, pyganim, sys
+import pygame, pyganim, sys, math
 from random import *
 from math import *
 from pygame.locals import *
@@ -26,18 +26,43 @@ class dMap:
         self.nbTileX = tilemapx
         self.nbTileY = tilemapy
 
+        FLOOR = 0
+        WALL = 2
 
         self.makeMap(tilemapx,tilemapy,30,0,80)
         for y in range(tilemapy):
             self.tileMap.append([])
             for x in range(tilemapx):
-                if self.mapArr[y][x]==0:
+                if self.mapArr[y][x] == FLOOR:
                         self.possibleBeginPlace.append((x,y))
                         self.tileMap[y].append(Tile(x,y,'Floor'))
 #                if somename.mapArr[y][x]==1:
 #                        line += " "
-                elif self.mapArr[y][x]==2:
-                        self.tileMap[y].append(Tile(x,y,'Wall'))
+                elif self.mapArr[y][x] == WALL:
+                        # By default all is a floor around
+                        up = down = right = left = None
+                        if x == 0 or self.mapArr[y][x-1] == WALL:
+                            left = '2'
+                        if x == tilemapx-1 or self.mapArr[y][x+1] == WALL:
+                            right = '2'
+                        #Now we have to do the top - easy part first
+                        if y == 0:
+                            up = '222'
+                        else:
+                            up='000'
+                            #we were not at the top, we need to build it slowlier
+                            if x == 0 or self.mapArr[y-1][x-1] == WALL:
+                                up = '2'+up[1:]
+                            if self.mapArr[y-1][x] == WALL:
+                                up = up[0:1]+'2'+up[2:]
+                            if x+1 == 0 or self.mapArr[y-1][x+1] == WALL:
+                                up = up[0:2]+'2'
+
+                        if y == tilemapy-1 or self.mapArr[y+1][x] == WALL:
+                            down = WALL
+
+                        self.tileMap[y].append(Tile(x,y,'Wall', topTile = up, bottomTile = down, leftTile = left, rightTile = right))
+
                 else:
                         self.tileMap[y].append(Tile(x,y,'Other'))
 
@@ -285,23 +310,43 @@ class dMap:
         for x in self.cList:
             self.joinCorridor(x[0],x[1],x[2],x[3],10)
 
-
 class Tile:
+
+    graphicInitialized = False
+
+    @staticmethod
+    def initializeGraphics():
+        print("Init")
+        Tile.IMG_Floor = pygame.image.load('resources/images/Floor.png')
+        Tile.IMG_WallYYYY0 = pygame.image.load('resources/images/Center001.png') # Used when 4 corners are full (top=Y,right=Y,bottom=Y,left=Y)
+        Tile.IMG_WallNYYY0 = pygame.image.load('resources/images/Side001.png') # Used when Top is None, all other full
+        Tile.IMG_WallNYYY1 = pygame.image.load('resources/images/Side002.png') # Used when Top is None, all other full
+        Tile.IMG_WallNYYY2 = pygame.image.load('resources/images/Side003.png') # Used when Top is None, all other full
+        Tile.IMG_WallNYYY3 = pygame.image.load('resources/images/Side004.png') # Used when Top is None, all other full
+
+
     #a tile of the map and its properties
-    def __init__(self, x=0, y=0, type=None, block_sight = None):
+    def __init__(self, x=0, y=0, type=None, block_sight = None, topTile = None, bottomTile = None, leftTile = None, rightTile = None):
+        if not Tile.graphicInitialized:
+            Tile.initializeGraphics()
+            Tile.graphicInitialized = True
         self.x = x
         self.y = y
         self.type = type
         self.blocked = False
         self.spriteImage= None
+        self.explored = False
         if type == 'Wall':
-            self.spriteImage = pygame.image.load('resources/images/Center001.png')
+            self.spriteImage = Tile.IMG_Floor.copy()
+            self.spriteImage.blit(pygame.image.load('resources/images/Ang004.png'),(0,0))
             self.blocked = True
         elif type == 'Floor':
-            self.spriteImage = pygame.image.load('resources/images/Floor.png')
+            #self.spriteImage = pygame.image.load('resources/images/Floor.png')
+            self.spriteImage = Tile.IMG_Floor.copy()
         else:
             self.spriteImage = pygame.Surface((31,31))
-            self.spriteImage.fill((64,25,65))
+            self.spriteImage.fill((64,25,12))
+#            self.spriteImage = pygame.image.load('resources/images/Floor.png')
         #by default, if a tile is blocked, it also blocks sight
         if block_sight is None: block_sight = self.blocked
         self.block_sight = block_sight
@@ -316,9 +361,22 @@ class Tile:
 class Object:
     #this is a generic object: the player, a monster, an item, the stairs...
     #it's always represented by a character on screen.
-    def __init__(self, x, y, resourceFile):
+    def __init__(self, x, y, name, resourceFile, blocks=False, fighter=None, ai=None):
         self.x = x
         self.y = y
+        self.name = name
+        self.blocks = blocks
+
+        self.fighter = fighter
+        if self.fighter:  #let the fighter component know who owns it
+            self.fighter.owner = self
+
+        self.ai = ai
+        if self.ai:  #let the AI component know who owns it
+            self.ai.owner = self
+
+
+        # GRAPHICAL PART...
         spriteSurface = pygame.image.load(resourceFile)
         self.spriteWidth = 24
         self.spriteHeight = 32
@@ -338,10 +396,12 @@ class Object:
         conductor_object = pyganim.PygConductor([self.animObj_UP, self.animObj_RIGHT, self.animObj_DOWN, self.animObj_LEFT])
         conductor_object.play() # starts all three animations at the same time.
         self.spriteImage = self.animObj_RIGHT
+        self.needRewrite = True # we need to rewrite after Move
 
-    def move(self, dx, dy, worldmap):
+    def move(self, dx, dy, worldmap, worldobjects):
         #move by the given amount, if the destination is not blocked
-        if not worldmap.getTileAt(self.x + dx,self.y + dy).blocked and (dx != 0 or dy != 0):
+        if not self.is_blocked(self.x+dx, self.y+dy, worldmap, worldobjects) and (dx != 0 or dy != 0):
+            self.needRewrite = True
             self.x += dx
             self.y += dy
             if abs(dx)>abs(dy):
@@ -357,12 +417,86 @@ class Object:
 
     def draw(self, surface, worldmap):
         #set the color and then draw the character that represents this object at its position
-        self.spriteImage.blit(surface, worldmap.getTileTop(self.x, self.y))
+        if self.needRewrite:
+            self.spriteImage.blit(surface, worldmap.getTileTop(self.x, self.y))
+            self.needRewrite = False
 
     def clear(self, surface, worldmap):
         #erase the character that represents this object
         #libtcod.console_put_char(con, self.x, self.y, ' ', libtcod.BKGND_NONE)
         worldmap.drawTileAt(self.x, self.y, surface)
+        self.needRewrite = True
+
+    def is_blocked(self, new_x, new_y, worldmap, worldobjects):
+        #first test the map tile
+        if worldmap.getTileAt(new_x,new_y).blocked:
+            return True
+
+        #now check for any blocking objects
+        for object in worldobjects:
+            if object.blocks and object.x == new_x and object.y == new_y:
+                return True
+
+        return False
+
+
+    def move_towards(self, target_x, target_y, worldmap, worldobject):
+        #vector from this object to the target, and distance
+        dx = target_x - self.x
+        dy = target_y - self.y
+        distance = math.sqrt(dx ** 2 + dy ** 2)
+
+        #normalize it to length 1 (preserving direction), then round it and
+        #convert to integer so the movement is restricted to the map grid
+        dx = int(round(dx / distance))
+        dy = int(round(dy / distance))
+        self.move(dx, dy, worldmap, worldobject)
+
+    def distance_to(self, other):
+        #return the distance to another object
+        dx = other.x - self.x
+        dy = other.y - self.y
+        return math.sqrt(dx ** 2 + dy ** 2)
+
+
+class Fighter:
+    #combat-related properties and methods (monster, player, NPC).
+    def __init__(self, hp, defense, power):
+        self.max_hp = hp
+        self.hp = hp
+        self.defense = defense
+        self.power = power
+
+    def take_damage(self, damage):
+        #apply damage if possible
+        if damage > 0:
+            self.hp -= damage
+
+    def attack(self, target):
+        #a simple formula for attack damage
+        damage = self.power - target.fighter.defense
+
+        if damage > 0:
+            #make the target take some damage
+            print(self.owner.name.capitalize() + ' attacks ' + target.name + ' for ' + str(damage) + ' hit points.')
+            target.fighter.take_damage(damage)
+        else:
+            print(self.owner.name.capitalize() + ' attacks ' + target.name + ' but it has no effect!')
+
+
+class BasicMonster:
+    #AI for a basic monster.
+    def take_turn(self, player, worldmap, worldobject):
+        monster = self.owner
+        #move towards player if far away (but not too far
+        distance = monster.distance_to(player)
+        if  distance >= 2 and distance <=6:
+            monster.move_towards(player.x, player.y, worldmap, worldobject)
+
+        #close enough, attack! (if the player is still alive.)
+        elif distance < 2 and player.fighter.hp > 0:
+            monster.fighter.attack(player)
+
 
 
 def render_all(surface, worldmap):
@@ -406,34 +540,72 @@ def getPlayableRect(player, screensizex, screensizey, worldmap):
     playableRect = pygame.Rect(playableleft,playabletop,screensizex,screensizey)
     return playableRect
 
-def handle_key():
-    dx = dy = 0
-    for event in pygame.event.get():
-        if event.type == QUIT:
-            pygame.quit()
-            sys.exit()
-        if event.type == KEYUP:
-            if event.key == K_UP:
-                dy -= 1
-            if event.key == K_DOWN:
-                dy += 1
-            if event.key == K_LEFT:
-                dx -= 1
-            if event.key == K_RIGHT:
-                dx += 1
-    return(dx,dy)
+def player_move_or_attack(dx, dy, player, worldmap, worldobject):
 
+    #the coordinates the player is moving to/attacking
+    x = player.x + dx
+    y = player.y + dy
+
+    #try to find an attackable object there
+    target = None
+    for anobject in worldobject:
+        if anobject.x == x and anobject.y == y:
+            target = anobject
+            break
+
+    #attack if target found, move otherwise
+    if target is not None:
+        player.fighter.attack(target)
+    else:
+        player.move(dx, dy, worldmap, worldobject)
+        fov_recompute = True
+
+
+def handle_key(player, worldmap, worldobject):
+    dx = dy = 0
+    global game_state
+
+    if game_state == 'playing':
+        for event in pygame.event.get():
+            if event.type == QUIT:
+                return 'exit'
+            if event.type == KEYUP:
+                if event.key == K_UP:
+                    dy -= 1
+                if event.key == K_DOWN:
+                    dy += 1
+                if event.key == K_LEFT:
+                    dx -= 1
+                if event.key == K_RIGHT:
+                    dx += 1
+            else:
+                return 'didnt-take-turn'
+    if dx!=0 or dy != 0:
+        player_move_or_attack(dx, dy, player, worldmap, worldobject)
+    else:
+        return 'didnt-take-turn'
 
 def main():
     # INIT MAP
     nbMapTileX = 120
     nbMapTileY = 90
-
     worldmap = dMap(nbMapTileX, nbMapTileY)
 
+    # INIT OBJECTSx
+    worldobject = []
+    fighter_component = Fighter(hp=30, defense=2, power=5)
+    player = Object(worldmap.possibleBeginPlace[0][0], worldmap.possibleBeginPlace[0][1], 'player', 'resources/images/player.png', blocks=True, fighter = fighter_component)
+    for i in range(1,20):
+        fighter_component = Fighter(hp=10, defense=0, power=3)
+        ai_component = BasicMonster()
+        monster = Object(worldmap.possibleBeginPlace[i][0], worldmap.possibleBeginPlace[i][1], 'monster', 'resources/images/monster.png', blocks=True, fighter=fighter_component, ai=ai_component)
+        worldobject.append(monster)
+    worldobject.append(player)
 
-    # INIT OBJECTS
-    player = Object(worldmap.possibleBeginPlace[0][0], worldmap.possibleBeginPlace[0][1], 'resources/images/player.png')
+    # STATE VARIABLE
+    global game_state
+    player_action = None
+
     # INIT DRAWINGS
     pygame.init()
     mainClock = pygame.time.Clock()
@@ -442,17 +614,35 @@ def main():
     entireWindowSurface = pygame.Surface(worldmap.getMapDimensionPixel())
 
     worldmap.drawMap(entireWindowSurface)
-    player.draw(entireWindowSurface, worldmap)
-
+#    player.draw(entireWindowSurface, worldmap)
 
 
     # run the game loop
     while True:
-        # check for the QUIT event
-        player.clear(entireWindowSurface, worldmap)
-        (dx, dy) = handle_key()
-        player.move(dx, dy, worldmap)
-        player.draw(entireWindowSurface, worldmap)
+        for object in worldobject:
+            object.clear(entireWindowSurface, worldmap)
+
+        #handle keys and exit game if needed
+        player_action = handle_key(player, worldmap, worldobject)
+        if player_action == 'exit':
+            pygame.quit()
+            sys.exit()
+
+        #let monsters take their turn
+        if game_state == 'playing' and player_action != 'didnt-take-turn':
+            for object in worldobject:
+                if object.ai:
+                    object.ai.take_turn(player, worldmap, worldobject)
+                    #print('The monster growls!')
+
+        #player.clear(entireWindowSurface, worldmap)
+        #(dx, dy) = handle_key()
+        #player.move(dx, dy, worldmap, worldobject)
+
+
+        #draw all objects (including player) in the list if required
+        for object in worldobject:
+            object.draw(entireWindowSurface, worldmap)
 
         playableSurface = entireWindowSurface.subsurface(getPlayableRect(player, 1024,768, worldmap))
         gameSurface.blit(playableSurface,(0,0))
@@ -462,4 +652,5 @@ def main():
 
 
 if __name__ == '__main__':
+    game_state = "playing"
     main()
