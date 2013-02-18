@@ -400,7 +400,7 @@ class Tile:
 class Object:
     #this is a generic object: the player, a monster, an item, the stairs...
     #it's always represented by a character on screen.
-    def __init__(self, x, y, name, resourceFile, blocks=False, fighter=None, ai=None):
+    def __init__(self, x, y, name, resourceFile, blocks=False, fighter=None, ai=None, item=None):
         self.x = x
         self.y = y
         self.name = name
@@ -414,6 +414,9 @@ class Object:
         if self.ai:  #let the AI component know who owns it
             self.ai.owner = self
 
+        self.item = item
+        if self.item:  #let the Item component know who owns it
+            self.item.owner = self
 
         # GRAPHICAL PART...
         spriteSurface = pygame.image.load(resourceFile)
@@ -506,6 +509,7 @@ class Fighter:
         self.defense = defense
         self.power = power
         self.death_function = death_function
+        self.inventory=[]
 
     def take_damage(self, damage):
         #apply damage if possible
@@ -528,6 +532,12 @@ class Fighter:
         else:
             messageBox.print(self.owner.name.capitalize() + ' attacks ' + target.name + ' but it has no effect!')
 
+    def heal(self):
+        #heal by the given amount, without going over the maximum
+        self.hp += amount
+        if self.hp > self.max_hp:
+            self.hp = self.max_hp
+
 
 class BasicMonster:
     #AI for a basic monster.
@@ -547,22 +557,22 @@ class Item:
     def __init__(self, use_function=None):
         self.use_function = use_function
 
-    def pick_up(self):
+    def pick_up(self, fighter, worldobject):
         #add to the player's inventory and remove from the map
-        if len(inventory) >= 26:
-            message('Your inventory is full, cannot pick up ' + self.owner.name + '.', libtcod.red)
+        if len(fighter.inventory) >= 26:
+            messageBox.print('Your inventory is full, cannot pick up ' + self.owner.name + '.')
         else:
-            inventory.append(self.owner)
-            objects.remove(self.owner)
-            message('You picked up a ' + self.owner.name + '!', libtcod.green)
+            fighter.inventory.append(self.owner)
+            worldobject.remove(self.owner)
+            messageBox.print('You picked up a ' + self.owner.name + '!')
 
-    def use(self):
+    def use(self, fighter):
         #just call the "use_function" if it is defined
         if self.use_function is None:
-            message('The ' + self.owner.name + ' cannot be used.')
+            messageBox.print('The ' + self.owner.name + ' cannot be used.')
         else:
             if self.use_function() != 'cancelled':
-                inventory.remove(self.owner)  #destroy after use, unless it was cancelled for some reason
+                fighter.inventory.remove(self.owner)  #destroy after use, unless it was cancelled for some reason
 
 def render_all(surface, worldmap):
     #draw all objects in the list
@@ -627,10 +637,19 @@ def monster_death(monster):
     monster.needRewrite = True
     monster.name = 'remains of ' + monster.name
 
-def handle_key(player, worldmap, worldobject, allButtons):
+def cast_heal(player):
+    #heal the player
+    if player.fighter.hp == player.fighter.max_hp:
+        messageBox.print('You are already at full health.')
+        return 'cancelled'
+
+    messageBox.print('Your wounds start to feel better!')
+    player.fighter.heal(randint(4))
+
+def handle_key(player, worldmap, worldobject, allButtons, surface):
     dx = dy = 0
     global game_state
-
+    eventHandledByButton = False
     if game_state == 'playing':
         for event in pygame.event.get():
             # handle button
@@ -639,6 +658,20 @@ def handle_key(player, worldmap, worldobject, allButtons):
                 if 'click' in events:
                     if button.caption == 'Quit':
                         return 'exit'
+                    if button.caption == 'Quit':
+                        eventHandledByButton = True
+                    if button.caption == 'Quit':
+                        eventHandledByButton = True
+            if event.type == MOUSEBUTTONDOWN and not eventHandledByButton:
+                # player is at 466,365.. Small hack there
+                (clickx,clicky) = event.pos
+                print(event.pos)
+                tilex = player.x + int(float(clickx - 466) / IMG_SIZE_TILE_X)
+                tiley = player.y + int(float(clicky - 365) / IMG_SIZE_TILE_Y)
+                names = [obj.name for obj in worldobject if obj.x == tilex and obj.y == tiley]
+                names = ', '.join(names)
+                if names!=None and names != '':
+                    messageBox.print(names.capitalize())
 
             # handle key
             if event.type == QUIT:
@@ -652,7 +685,15 @@ def handle_key(player, worldmap, worldobject, allButtons):
                     dx -= 1
                 if event.key == K_RIGHT:
                     dx += 1
-            else:
+            if event.type == KEYDOWN:
+                if event.key == K_g:
+                    print("key g")
+                    #pick up an item
+                    for object in worldobject:  #look for an item in the player's tile
+                        if object.x == player.x and object.y == player.y and object.item:
+                            object.item.pick_up(player.fighter, worldobject)
+                            object.clear(surface,worldmap)
+                            break
                 return 'didnt-take-turn'
     if dx!=0 or dy != 0:
         player_move_or_attack(dx, dy, player, worldmap, worldobject)
@@ -686,17 +727,34 @@ class MessageBox:
         for i in range(len(self.messages)):
             result.blit(surfaces[i], (0,i*fontHeight))
         self.surface.blit(result,self.textRect)
-'''
-def message(text, messageBox, surface):
-    textobj = GAME_FONT.render(text, 1, (255,255,255))
-    surface.blit(textobj, messageBox)
-'''
+
+def render_bar(surface, x, y, total_width, total_height, name, value, maximum, bar_color, back_color=(0,0,0)):
+    ''' The bar is located at x,y part of the screen
+    '''
+    #render a bar (HP, experience, etc). first calculate the width of the bar
+    bar_width = int(float(value) / maximum * total_width)
+
+    #render the background first
+    totalBar = pygame.Surface((total_width, total_height))
+    totalBar.fill((back_color))
+    surface.blit(totalBar, (x,y))
+
+    # render the bar now
+    bar = pygame.Surface((bar_width, total_height))
+    bar.fill((bar_color))
+    surface.blit(bar, (x,y))
+
+    #finally, some centered text with the values
+    font = pygame.font.Font('freesansbold.ttf', 14)
+    fontSurface = font.render(name + ': ' + str(value) + '/' + str(maximum),1,(255,255,255))
+    surface.blit(fontSurface, (x+10,y+int(float(total_height-font.get_height())/2)))
+
 def main():
     # INIT DRAWINGS
     pygame.init()
     mainClock = pygame.time.Clock()
     gameSurface = pygame.display.set_mode((DISP_GAME_WIDTH,DISP_GAME_HEIGHT))
-    pygame.display.set_caption('OrangeLord Game v0.2')
+    pygame.display.set_caption('OrangeLord Game v0.3')
 
 
     # INIT MAP
@@ -713,6 +771,12 @@ def main():
         monster = Object(worldmap.possibleBeginPlace[i][0], worldmap.possibleBeginPlace[i][1], 'monster', 'resources/images/monster.png', blocks=True, fighter=fighter_component, ai=ai_component)
         worldobject.append(monster)
     worldobject.append(player)
+
+    item_component = Item(use_function=cast_heal)
+    for i in range(GAME_NB_MONSTER+1, 2*(GAME_NB_MONSTER+1)):
+        item = Object(worldmap.possibleBeginPlace[i][0], worldmap.possibleBeginPlace[i][1], 'healing potion', 'resources/images/player.png', item=item_component)
+        worldobject.append(item)
+
 
     # STATE VARIABLE
     global game_state
@@ -741,7 +805,7 @@ def main():
             object.clear(entireWindowSurface, worldmap)
 
         #handle keys and exit game if needed
-        player_action = handle_key(player, worldmap, worldobject, allButtons)
+        player_action = handle_key(player, worldmap, worldobject, allButtons, entireWindowSurface)
         if player_action == 'exit':
             pygame.quit()
             sys.exit()
@@ -760,8 +824,12 @@ def main():
                 object.draw(entireWindowSurface, worldmap)
         player.draw(entireWindowSurface, worldmap)
 
+
         playableSurface = entireWindowSurface.subsurface(getPlayableRect(player, DISP_PLAYABLE_WIDTH, DISP_PLAYABLE_HEIGHT, worldmap))
         gameSurface.blit(playableSurface,(DISP_SEP_WIDTH,DISP_SEP_HEIGHT))
+
+        #draw bar
+        render_bar(gameSurface, DISP_GAME_WIDTH-DISP_SEP_WIDTH-DISP_BUTTON_WIDTH, DISP_SEP_HEIGHT*4+DISP_BUTTON_HEIGHT*3, DISP_BUTTON_WIDTH, DISP_BUTTON_HEIGHT, 'HP', player.fighter.hp, player.fighter.max_hp, (5,50,78))
 
         pygame.display.update()
         mainClock.tick(40)
