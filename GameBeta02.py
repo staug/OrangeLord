@@ -532,7 +532,7 @@ class Fighter:
         else:
             messageBox.print(self.owner.name.capitalize() + ' attacks ' + target.name + ' but it has no effect!')
 
-    def heal(self):
+    def heal(self, amount):
         #heal by the given amount, without going over the maximum
         self.hp += amount
         if self.hp > self.max_hp:
@@ -571,8 +571,10 @@ class Item:
         if self.use_function is None:
             messageBox.print('The ' + self.owner.name + ' cannot be used.')
         else:
-            if self.use_function() != 'cancelled':
+            if self.use_function(fighter) != 'cancelled':
+                print(fighter.inventory)
                 fighter.inventory.remove(self.owner)  #destroy after use, unless it was cancelled for some reason
+                print(fighter.inventory)
 
 def render_all(surface, worldmap):
     #draw all objects in the list
@@ -627,7 +629,6 @@ def monster_death(monster):
     #transform it into a nasty corpse! it doesn't block, can't be
     #attacked and doesn't move
     messageBox.print(monster.name.capitalize() + ' is dead!')
-    #monster.conductor_object.pause()
     monster.conductor_object = None
     monster.spriteImage = pyganim.PygAnimation([('resources/images/Mushroom003.png',1)])
     monster.spriteImage.play()
@@ -637,16 +638,16 @@ def monster_death(monster):
     monster.needRewrite = True
     monster.name = 'remains of ' + monster.name
 
-def cast_heal(player):
+def cast_heal(fighter):
     #heal the player
-    if player.fighter.hp == player.fighter.max_hp:
+    if fighter.hp == fighter.max_hp:
         messageBox.print('You are already at full health.')
         return 'cancelled'
 
     messageBox.print('Your wounds start to feel better!')
-    player.fighter.heal(randint(4))
+    fighter.heal(randrange(4))
 
-def handle_key(player, worldmap, worldobject, allButtons, surface):
+def handle_key(player, worldmap, worldobject, allButtons, surface, gameSurface):
     dx = dy = 0
     global game_state
     eventHandledByButton = False
@@ -665,7 +666,6 @@ def handle_key(player, worldmap, worldobject, allButtons, surface):
             if event.type == MOUSEBUTTONDOWN and not eventHandledByButton:
                 # player is at 466,365.. Small hack there
                 (clickx,clicky) = event.pos
-                print(event.pos)
                 tilex = player.x + int(float(clickx - 466) / IMG_SIZE_TILE_X)
                 tiley = player.y + int(float(clicky - 365) / IMG_SIZE_TILE_Y)
                 names = [obj.name for obj in worldobject if obj.x == tilex and obj.y == tiley]
@@ -687,13 +687,19 @@ def handle_key(player, worldmap, worldobject, allButtons, surface):
                     dx += 1
             if event.type == KEYDOWN:
                 if event.key == K_g:
-                    print("key g")
                     #pick up an item
                     for object in worldobject:  #look for an item in the player's tile
                         if object.x == player.x and object.y == player.y and object.item:
                             object.item.pick_up(player.fighter, worldobject)
-                            object.clear(surface,worldmap)
+                           # object.clear(surface,worldmap)
                             break
+                if event.key == K_i:
+                    #inventory
+                    #show the inventory; if an item is selected, use it
+                    chosen_item = inventory_menu('Use one of:', player, gameSurface)
+                    print(str(chosen_item))
+                    if chosen_item is not None:
+                        chosen_item.use(player.fighter)
                 return 'didnt-take-turn'
     if dx!=0 or dy != 0:
         player_move_or_attack(dx, dy, player, worldmap, worldobject)
@@ -706,19 +712,22 @@ class MessageBox:
         self.background = background
         self.font = pygame.font.Font('freesansbold.ttf', 14)
         self.messages=[]
+        #self.colors=[]
         self.nbMessages = 5
         self.textRect = pygame.Rect(DISP_SEP_WIDTH, DISP_SEP_HEIGHT*2+DISP_PLAYABLE_HEIGHT, DISP_MESSAGE_WIDTH, DISP_MESSAGE_HEIGHT)
 
-    def print(self, aMessage):
+    def print(self, aMessage, color=(255,255,255)):
         #Erase previous
         self.surface.fill(self.background, self.textRect)
 
-        self.messages.append(aMessage)
+        self.messages.append({'txt':aMessage,'color':color})
+        #self.colors.append(color)
+
         if len(self.messages) > self.nbMessages:
             self.messages = self.messages[1:]
         fontHeight = self.font.get_height()
 
-        surfaces = [self.font.render(ln, 1, (255,255,255)) for ln in self.messages]
+        surfaces = [self.font.render(ln['txt'], 1, ln['color']) for ln in self.messages]
         # can't pass background to font.render, because it doesn't respect the alpha
 
         maxwidth = max([s.get_width() for s in surfaces])
@@ -727,6 +736,73 @@ class MessageBox:
         for i in range(len(self.messages)):
             result.blit(surfaces[i], (0,i*fontHeight))
         self.surface.blit(result,self.textRect)
+
+def menu(header, options, width, gamesurface):
+    ''' Shows a nice menu on top of the screen
+    '''
+    if len(options) > 26: raise ValueError('Cannot have a menu with more than 26 options.')
+
+    font = pygame.font.Font(GAME_FONT, GAME_FONT_SIZE)
+    fontHeight = font.get_height()+5
+    #calculate total height for the header (after auto-wrap) and one line per option
+    height = (len(options)+2)*fontHeight
+
+    #create an off-screen console that represents the menu's window
+    window = pygame.Surface((width, height))
+    window.fill(COLOR_BLACK)
+    pygame.draw.rect(window, COLOR_RED, window.get_rect().copy(), font.size(header)[1])
+
+    #print the header - with a black background...
+    window.blit(font.render(header,1,COLOR_WHITE, COLOR_BLACK), (fontHeight,0))
+
+    #print all the options
+    y = 1
+    letter_index = ord('a')
+    for option_text in options:
+        text = '(' + chr(letter_index) + ') ' + option_text
+        window.blit(font.render(text,1,COLOR_WHITE), (2*fontHeight+15,y*fontHeight))
+        y += 1
+        letter_index += 1
+
+    #blit the contents of "window" to the root console
+    x = DISP_GAME_WIDTH/2 - width/2
+    y = DISP_GAME_HEIGHT/2 - height/2
+
+    #but before taht make a copy of the original!
+    copySurface = gamesurface.copy()
+    rect = gamesurface.blit(window, (x, y))
+
+    #present the root console to the player and wait for a key-press
+    pygame.display.update(rect)
+    pygame.event.set_allowed([pygame.KEYDOWN])
+    pygame.event.clear()
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == KEYDOWN:
+                # Now we copy back the old content
+                gamesurface.blit(copySurface, (x, y), rect)
+                pygame.display.update(rect)
+                #convert the ASCII code to an index; if it corresponds to an option, return it
+
+                index = ord(event.unicode) - ord('a')
+                if index >= 0 and index < len(options):
+                    return index
+                return None
+
+def inventory_menu(header, player, gameSurface):
+    #show a menu with each item of the inventory as an option
+    if len(player.fighter.inventory) == 0:
+        options = ['Inventory is empty.']
+    else:
+        options = [item.name for item in player.fighter.inventory]
+
+    index = menu(header, options, DISP_INVENTORY_WIDTH, gameSurface)
+
+    #if an item was chosen, return it
+    if index is None or len(player.fighter.inventory) == 0: return None
+    return player.fighter.inventory[index].item
+
 
 def render_bar(surface, x, y, total_width, total_height, name, value, maximum, bar_color, back_color=(0,0,0)):
     ''' The bar is located at x,y part of the screen
@@ -772,8 +848,8 @@ def main():
         worldobject.append(monster)
     worldobject.append(player)
 
-    item_component = Item(use_function=cast_heal)
     for i in range(GAME_NB_MONSTER+1, 2*(GAME_NB_MONSTER+1)):
+        item_component = Item(use_function=cast_heal)
         item = Object(worldmap.possibleBeginPlace[i][0], worldmap.possibleBeginPlace[i][1], 'healing potion', 'resources/images/player.png', item=item_component)
         worldobject.append(item)
 
@@ -798,6 +874,7 @@ def main():
 
     # Draw the world
     worldmap.drawMap(entireWindowSurface)
+    messageBox.print("Welcome to Orange Lord Domain....", color=COLOR_RED)
 
     # run the game loop
     while True:
@@ -805,7 +882,7 @@ def main():
             object.clear(entireWindowSurface, worldmap)
 
         #handle keys and exit game if needed
-        player_action = handle_key(player, worldmap, worldobject, allButtons, entireWindowSurface)
+        player_action = handle_key(player, worldmap, worldobject, allButtons, entireWindowSurface, gameSurface)
         if player_action == 'exit':
             pygame.quit()
             sys.exit()
