@@ -39,8 +39,10 @@ GAME_NB_MONSTER = 15
 GAME_NB_TILE_X = 120
 GAME_NB_TILE_Y = 90
 
+GAME_MINIMUM_START_PLACE = 900 # Any world generated with less than this will be discarded
+
 # Font
-GAME_FONT='resources/segoepr.ttf'
+GAME_FONT='resources/calibrib.ttf'
 GAME_FONT_SIZE=14
 
 # Constants For Color
@@ -48,3 +50,4 @@ COLOR_WHITE=(255,255,255)
 COLOR_BLACK=(0,0,0)
 COLOR_RED=(240,0,0)
 COLOR_GREEN=(0,240,0)
+COLOR_ORANGE=(255,165,0)
