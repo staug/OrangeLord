@@ -9,7 +9,7 @@
 # Licence:     <your licence>
 #-------------------------------------------------------------------------------
 
-import pygame, pygbutton, pyganim, sys, math
+import pygame, pygbutton, pyganim, sys, math, ast
 from random import *
 import shelve
 import configparser
@@ -422,12 +422,12 @@ class Tile:
 class Object:
     #this is a generic object: the player, a monster, an item, the stairs...
     #it's always represented by a character on screen.
-    def __init__(self, x, y, name, resourceFile, blocks=False, fighter=None, ai=None, item=None):
+    def __init__(self, x, y, name, resources, blocks=False, fighter=None, ai=None, item=None):
         self.x = x
         self.y = y
         self.name = name
         self.blocks = blocks
-        self.resourceFile = resourceFile
+        self.resources = resources
 
         self.fighter = fighter
         if self.fighter:  #let the fighter component know who owns it
@@ -449,27 +449,32 @@ class Object:
 
     def initGraphics(self):
         # GRAPHICAL PART...
-        spriteSurface = pygame.image.load(self.resourceFile)
-        self.spriteWidth = 24
-        self.spriteHeight = 32
-        # In the future the resource file will contain a ref to the image...
-        self.animObj_UP = pyganim.PygAnimation([(spriteSurface.subsurface(pygame.Rect(0,0,self.spriteWidth,self.spriteHeight)), 0.1),
+        # first, load the image and setup the sprite dimensions
+        spriteSurface = pygame.image.load(self.resources['image_file'])
+        self.spriteWidth = int(self.resources['image_size_x'])
+        self.spriteHeight = int(self.resources['image_size_y'])
+        # Now split the image
+        if self.resources['image_animated'] == 'yes':
+            self.animObj_UP = pyganim.PygAnimation([(spriteSurface.subsurface(pygame.Rect(0,0,self.spriteWidth,self.spriteHeight)), 0.1),
                            (spriteSurface.subsurface(pygame.Rect(self.spriteWidth,0,self.spriteWidth,self.spriteHeight)), 0.1),
                            (spriteSurface.subsurface(pygame.Rect(self.spriteWidth*2,0,self.spriteWidth,self.spriteHeight)), 0.1)])
-        self.animObj_RIGHT = pyganim.PygAnimation([(spriteSurface.subsurface(pygame.Rect(0,self.spriteHeight,self.spriteWidth,self.spriteHeight)), 0.1),
+            self.animObj_RIGHT = pyganim.PygAnimation([(spriteSurface.subsurface(pygame.Rect(0,self.spriteHeight,self.spriteWidth,self.spriteHeight)), 0.1),
                            (spriteSurface.subsurface(pygame.Rect(self.spriteWidth,self.spriteHeight,self.spriteWidth,self.spriteHeight)), 0.1),
                            (spriteSurface.subsurface(pygame.Rect(self.spriteWidth*2,self.spriteHeight,self.spriteWidth,self.spriteHeight)), 0.1)])
-        self.animObj_DOWN = pyganim.PygAnimation([(spriteSurface.subsurface(pygame.Rect(0,self.spriteHeight*2,self.spriteWidth,self.spriteHeight)), 0.1),
+            self.animObj_DOWN = pyganim.PygAnimation([(spriteSurface.subsurface(pygame.Rect(0,self.spriteHeight*2,self.spriteWidth,self.spriteHeight)), 0.1),
                            (spriteSurface.subsurface(pygame.Rect(self.spriteWidth,self.spriteHeight*2,self.spriteWidth,self.spriteHeight)), 0.1),
                            (spriteSurface.subsurface(pygame.Rect(self.spriteWidth*2,self.spriteHeight*2,self.spriteWidth,self.spriteHeight)), 0.1)])
-        self.animObj_LEFT = pyganim.PygAnimation([(spriteSurface.subsurface(pygame.Rect(0,self.spriteHeight*3,self.spriteWidth,self.spriteHeight)), 0.1),
+            self.animObj_LEFT = pyganim.PygAnimation([(spriteSurface.subsurface(pygame.Rect(0,self.spriteHeight*3,self.spriteWidth,self.spriteHeight)), 0.1),
                            (spriteSurface.subsurface(pygame.Rect(self.spriteWidth,self.spriteHeight*3,self.spriteWidth,self.spriteHeight)), 0.1),
                            (spriteSurface.subsurface(pygame.Rect(self.spriteWidth*2,self.spriteHeight*3,self.spriteWidth,self.spriteHeight)), 0.1)])
+            self.spriteImage = self.animObj_RIGHT #arbitrary
+
+        else:
+            self.spriteImage = self.animObj_DOWN = self.animObj_LEFT = self.animObj_RIGHT = self.animObj_UP = pyganim.PygAnimation([(spriteSurface.subsurface(pygame.Rect(ast.literal_eval(self.resources['image_single']),(self.spriteWidth, self.spriteHeight))),1)])
+
         conductor_object = pyganim.PygConductor([self.animObj_UP, self.animObj_RIGHT, self.animObj_DOWN, self.animObj_LEFT])
         conductor_object.play() # starts all three animations at the same time.
-        self.spriteImage = self.animObj_RIGHT
         self.needRewrite = True # we need to rewrite after Move
-
 
     def move(self, dx, dy):
         #move by the given amount, if the destination is not blocked
@@ -895,22 +900,21 @@ def new_game():
     # Read the config file
     # PLAYER
     fighter_component = Fighter(hp=30, defense=2, power=5, death_function=player_death)
-    player = Object(worldmap.possibleBeginPlace[0][0], worldmap.possibleBeginPlace[0][1], 'player', 'resources/images/player.png', blocks=True, fighter = fighter_component)
+    player = Object(worldmap.possibleBeginPlace[0][0], worldmap.possibleBeginPlace[0][1], 'player', config._sections['player'], blocks=True, fighter = fighter_component)
 
     for i in range(1,GAME_NB_MONSTER+1):
-        #fighter_component = Fighter(hp=10, defense=0, power=3, death_function = monster_death)
         monster_name='orc'
         fighter_component = Fighter(hp=10, defense=0, power=3, death_function = getattr(__main__,config.get(monster_name, 'death_function')))
         ai_component = BasicMonster()
-        monster = Object(worldmap.possibleBeginPlace[i][0], worldmap.possibleBeginPlace[i][1], monster_name, 'resources/images/monster.png', blocks=True, fighter=fighter_component, ai=ai_component)
+        monster = Object(worldmap.possibleBeginPlace[i][0], worldmap.possibleBeginPlace[i][1], monster_name, config._sections[monster_name], blocks=True, fighter=fighter_component, ai=ai_component)
         worldobjects.append(monster)
     worldobjects.append(player)
 
-    for i in range(GAME_NB_MONSTER+1, 2*(GAME_NB_MONSTER+1)):
+    for i in range(GAME_NB_MONSTER+1, 5*(GAME_NB_MONSTER+1)):
         item_name='healing potion'
         listing = config._sections[item_name]
         item_component = Item(use_function=getattr(__main__,config.get(item_name, 'use_function')))
-        item = Object(worldmap.possibleBeginPlace[i][0], worldmap.possibleBeginPlace[i][1], item_name, 'resources/images/player.png', item=item_component)
+        item = Object(worldmap.possibleBeginPlace[i][0], worldmap.possibleBeginPlace[i][1], item_name, config._sections[item_name], item=item_component)
         worldobjects.append(item)
 
 
