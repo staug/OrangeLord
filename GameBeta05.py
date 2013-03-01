@@ -9,12 +9,33 @@
 # Licence:     <your licence>
 #-------------------------------------------------------------------------------
 
+'''
+TODO:
+
+Main:
+    Levels, with specific monsters
+    New Walls
+    Fog of War
+    Stats and rules
+    Experience
+    Movement by pixel and not by side (?)
+
+Side:
+    (*) Door opened
+    Exploration: change floor color
+    Inventory button
+    Stat button
+    On a reload, erase previous monster and keep doors opened
+
+'''
+
 import pygame, pygbutton, pyganim, sys, math, ast
-from random import *
 import shelve
 import configparser
-#from math import *
+
+from random import *
 from pygame.locals import *
+
 from GameConstants import *
 
 import __main__
@@ -47,26 +68,26 @@ class dMap:
                         # Using the http://www.angryfishstudios.com/2011/04/adventures-in-bitmasking/ method
                         # By default all is a floor around
                         up = down = right = left = 0
-                        if x == 0 or self.mapArr[y][x-1] == WALL or self.mapArr[y][x-1] == 1:
+                        if x == 0 or self.mapArr[y][x-1] != FLOOR or self.mapArr[y][x-1] == 1:
                             left = 1
-                        if x == tilemapx-1 or self.mapArr[y][x+1] == WALL or self.mapArr[y][x+1] == 1:
+                        if x == tilemapx-1 or self.mapArr[y][x+1] != FLOOR or self.mapArr[y][x+1] == 1:
                             right = 1
                         #Now we have to do the top - easy part first
-                        if y == 0 or self.mapArr[y-1][x] == WALL or self.mapArr[y-1][x] == 1:
+                        if y == 0 or self.mapArr[y-1][x] != FLOOR or self.mapArr[y-1][x] == 1:
                             up = 1
-                        if y == tilemapy-1 or self.mapArr[y+1][x] == WALL or self.mapArr[y+1][x] == 1:
+                        if y == tilemapy-1 or self.mapArr[y+1][x] != FLOOR or self.mapArr[y+1][x] == 1:
                             down = 1
                         self.tileMap[y].append(Tile(x,y,'Wall', tileIndex=left * 8 + down * 4 + right * 2 + up))
                 else:
                         up = down = right = left = 0
-                        if x == 0 or self.mapArr[y][x-1] == WALL or self.mapArr[y][x-1] == 1:
+                        if x == 0 or self.mapArr[y][x-1] != FLOOR or self.mapArr[y][x-1] == 1:
                             left = 1
-                        if x == tilemapx-1 or self.mapArr[y][x+1] == WALL or self.mapArr[y][x+1] == 1:
+                        if x == tilemapx-1 or self.mapArr[y][x+1] != FLOOR or self.mapArr[y][x+1] == 1:
                             right = 1
                         #Now we have to do the top - easy part first
-                        if y == 0 or self.mapArr[y-1][x] == WALL or self.mapArr[y-1][x] == 1:
+                        if y == 0 or self.mapArr[y-1][x] != FLOOR or self.mapArr[y-1][x] == 1:
                             up = 1
-                        if y == tilemapy-1 or self.mapArr[y+1][x] == WALL or self.mapArr[y+1][x] == 1:
+                        if y == tilemapy-1 or self.mapArr[y+1][x] != FLOOR or self.mapArr[y+1][x] == 1:
                             down = 1
                         self.tileMap[y].append(Tile(x,y,'Other', tileIndex=left * 8 + down * 4 + right * 2 + up))
         shuffle(self.possibleBeginPlace)
@@ -373,6 +394,13 @@ class Tile:
         15:mainImage2.subsurface((192,192,32,32)).copy(),
         }
 
+        doorsImage = pygame.image.load('resources/images/doors.png')
+        Tile.IMG_DOOR = {
+        0 :doorsImage.subsurface((0,0,32,32)).copy(),
+        1 :doorsImage.subsurface((64,0,32,32)).copy(),
+        2 :doorsImage.subsurface((0,64,32,32)).copy(),
+        3 :doorsImage.subsurface((64,64,32,32)).copy()
+        }
 
     #a tile of the map and its properties
     def __init__(self, x=0, y=0, type=None, block_sight = None, tileIndex = -1):
@@ -406,16 +434,26 @@ class Tile:
             self.spriteImage = pygame.Surface((32,32))
             self.spriteImage.fill((12,80,102))
         elif self.type == 'Floor':
-            #self.spriteImage = pygame.image.load('resources/images/Floor.png')
             self.spriteImage = Tile.IMG_Floor.copy()
         else:
-            #print("WARNING" + type + "-top=" + str(topTile) + "-left=" + str(leftTile) + "-bottom="+str(bottomTile) +"-right"+str(rightTile))
-            self.spriteImage = pygame.Surface((32,32))
-            self.spriteImage.fill((64,125,12))
+            self.spriteImage = Tile.IMG_Floor.copy()
+            if self.tileIndex == 1 or self.tileIndex == 4 or self.tileIndex == 5:
+                self.spriteImage.blit(Tile.IMG_DOOR[0], (0,0))
+            else:
+                self.spriteImage.blit(Tile.IMG_DOOR[1], (0,0))
 
     def draw(self):
         if self.spriteImage != None:
             entireWindowSurface.blit(self.spriteImage, worldmap.getTileTop(self.x, self.y))
+
+    def setExplored(self):
+        self.explored = True
+        if(self.type != 'Wall' and self.type!='Floor'):
+            self.spriteImage = Tile.IMG_Floor.copy()
+            if self.tileIndex == 1 or self.tileIndex == 4 or self.tileIndex == 5:
+                self.spriteImage.blit(Tile.IMG_DOOR[2], (0,0))
+            else:
+                self.spriteImage.blit(Tile.IMG_DOOR[3], (0,0))
 
 
 
@@ -496,8 +534,11 @@ class Object:
     def draw(self):
         #set the color and then draw the character that represents this object at its position
         if self.needRewrite:
+            if self == player:
+                worldmap.getTileAt(self.x, self.y).setExplored()
             self.spriteImage.blit(entireWindowSurface, worldmap.getTileTop(self.x, self.y))
             self.needRewrite = False
+
 
     def clear(self):
         #erase the character that represents this object
@@ -904,13 +945,13 @@ def new_game():
 
     for i in range(1,GAME_NB_MONSTER+1):
         monster_name='orc'
-        fighter_component = Fighter(hp=10, defense=0, power=3, death_function = getattr(__main__,config.get(monster_name, 'death_function')))
+        fighter_component = Fighter(hp=config.getint(monster_name, 'hp'), defense=config.getint(monster_name, 'defense'), power=config.getint(monster_name, 'power'), death_function = getattr(__main__,config.get(monster_name, 'death_function')))
         ai_component = BasicMonster()
         monster = Object(worldmap.possibleBeginPlace[i][0], worldmap.possibleBeginPlace[i][1], monster_name, config._sections[monster_name], blocks=True, fighter=fighter_component, ai=ai_component)
         worldobjects.append(monster)
     worldobjects.append(player)
 
-    for i in range(GAME_NB_MONSTER+1, 5*(GAME_NB_MONSTER+1)):
+    for i in range(GAME_NB_MONSTER+1, 2*(GAME_NB_MONSTER+1)):
         item_name='healing potion'
         listing = config._sections[item_name]
         item_component = Item(use_function=getattr(__main__,config.get(item_name, 'use_function')))
