@@ -1,6 +1,6 @@
 #-------------------------------------------------------------------------------
-# Name:        module1
-# Purpose:
+# Name:        Orange Lord
+# Purpose:     A fun project with educational targets
 #
 # Author:      Piccool
 #
@@ -19,11 +19,13 @@ Main:
     Stats and rules
     Experience
     Movement by pixel and not by side (?)
+    Distance damage
 
 Side:
     (*) Door opened
+    (*) Music
     Exploration: change floor color
-    Inventory button
+    (*) Inventory button
     Stat button
     On a reload, erase previous monster and keep doors opened
 
@@ -354,6 +356,8 @@ class Tile:
 
         goodImage = pygame.image.load('resources/images/TileA5.png').convert()
         Tile.IMG_Floor = goodImage.subsurface((0,192,32,32)).copy()
+        Tile.IMG_Floor_NotVisited = goodImage.subsurface((0,0,32,32)).copy()
+        Tile.IMG_Floor_Explored = goodImage.subsurface((0,64,32,32)).copy()
 
         mainImage1 = pygame.image.load('resources/images/testownwall.png')
         Tile.IMG_WALL1 = {
@@ -410,11 +414,19 @@ class Tile:
         self.blocked = False
         if type == 'Wall':
             self.blocked = True
-        self.spriteImage= None
+
         self.explored = False
+        self.currentlyVisible = False
+
         self.tileIndex = tileIndex
         if block_sight is None: block_sight = self.blocked
         self.block_sight = block_sight
+
+        self.spriteImage  = None # Regular image
+        self.exploredImage= None # Image after exploration
+        self.unknownImage = None # Image before exploration
+
+
         self.initGraphics()
 
     def initGraphics(self):
@@ -422,40 +434,56 @@ class Tile:
             Tile.initializeGraphics()
             Tile.graphicInitialized = True
 
+        self.unknownImage = Tile.IMG_Floor_NotVisited.copy()
+        self.spriteImage = Tile.IMG_Floor.copy()
+        self.exploredImage = Tile.IMG_Floor_Explored.copy()
+
         if self.type == 'Wall' and self.tileIndex >= 0:
-            self.spriteImage = Tile.IMG_Floor.copy()
             rw=randrange(2)
             if rw == 0:
                 self.spriteImage.blit(Tile.IMG_WALL1[self.tileIndex], (0,0))
+                self.exploredImage.blit(Tile.IMG_WALL1[self.tileIndex], (0,0))
             else:
                 self.spriteImage.blit(Tile.IMG_WALL2[self.tileIndex], (0,0))
+                self.exploredImage.blit(Tile.IMG_WALL2[self.tileIndex], (0,0))
         elif self.type == 'Wall':
             print("WARNING" + type + "index="+str(self.tileIndex))
             self.spriteImage = pygame.Surface((32,32))
             self.spriteImage.fill((12,80,102))
         elif self.type == 'Floor':
-            self.spriteImage = Tile.IMG_Floor.copy()
+            # self.spriteImage = Tile.IMG_Floor.copy()
+            pass
         else:
-            self.spriteImage = Tile.IMG_Floor.copy()
             if self.tileIndex == 1 or self.tileIndex == 4 or self.tileIndex == 5:
                 self.spriteImage.blit(Tile.IMG_DOOR[0], (0,0))
+                self.exploredImage.blit(Tile.IMG_DOOR[0], (0,0))
             else:
                 self.spriteImage.blit(Tile.IMG_DOOR[1], (0,0))
+                self.exploredImage.blit(Tile.IMG_DOOR[1], (0,0))
 
     def draw(self):
         if self.spriteImage != None:
-            entireWindowSurface.blit(self.spriteImage, worldmap.getTileTop(self.x, self.y))
+            if not self.explored:
+                entireWindowSurface.blit(self.unknownImage, worldmap.getTileTop(self.x, self.y))
+            elif self.currentlyVisible:
+                entireWindowSurface.blit(self.spriteImage, worldmap.getTileTop(self.x, self.y))
+            else:
+                entireWindowSurface.blit(self.exploredImage, worldmap.getTileTop(self.x, self.y))
 
     def setExplored(self):
         self.explored = True
+        #Door open!
         if(self.type != 'Wall' and self.type!='Floor'):
             self.spriteImage = Tile.IMG_Floor.copy()
             if self.tileIndex == 1 or self.tileIndex == 4 or self.tileIndex == 5:
+                self.exploredImage.blit(Tile.IMG_DOOR[2], (0,0))
                 self.spriteImage.blit(Tile.IMG_DOOR[2], (0,0))
             else:
-                self.spriteImage.blit(Tile.IMG_DOOR[3], (0,0))
+                self.exploredImage.blit(Tile.IMG_DOOR[3], (0,0))
+                self.spriteImage.blit(Tile.IMG_DOOR[2], (0,0))
 
-
+    def setVisible(self):
+        self.currentlyVisible = True
 
 class Object:
     #this is a generic object: the player, a monster, an item, the stairs...
@@ -530,6 +558,15 @@ class Object:
                     self.spriteImage = self.animObj_DOWN
                 else:
                     self.spriteImage = self.animObj_UP
+        if self == player:
+            worldmap.getTileAt(self.x+1,self.y).setVisible()
+            worldmap.getTileAt(self.x,self.y+1).setVisible()
+            worldmap.getTileAt(self.x+1,self.y+1).setVisible()
+            worldmap.getTileAt(self.x-1,self.y).setVisible()
+            worldmap.getTileAt(self.x,self.y-1).setVisible()
+            worldmap.getTileAt(self.x-1,self.y-1).setVisible()
+            worldmap.getTileAt(self.x,self.y).setExplored()
+
 
     def draw(self):
         #set the color and then draw the character that represents this object at its position
@@ -731,8 +768,11 @@ def handle_key():
                 if 'click' in events:
                     if button.caption == 'Quit':
                         return 'exit'
-                    if button.caption == 'Quit':
+                    if button.caption == 'Inv':
                         eventHandledByButton = True
+                        chosen_item = inventory_menu('Use one of:')
+                        if chosen_item is not None:
+                            chosen_item.use()
                     if button.caption == 'Quit':
                         eventHandledByButton = True
             if event.type == MOUSEBUTTONDOWN and not eventHandledByButton:
@@ -768,7 +808,6 @@ def handle_key():
                     #inventory
                     #show the inventory; if an item is selected, use it
                     chosen_item = inventory_menu('Use one of:')
-                    print(str(chosen_item))
                     if chosen_item is not None:
                         chosen_item.use()
                 return 'didnt-take-turn'
@@ -986,13 +1025,19 @@ def main_menu():
         #show the background image, at twice the regular console resolution
         gameSurface.blit(mainMenuImage, (0, 0), (0,0,1024,768))
         pygame.display.update()
+
+        pygame.mixer.music.load('resources/donjon_crom.ogg')
+        pygame.mixer.music.play(-1,0.0)
+
         #show options and wait for the player's choice
         choice = menu('  Orange Dungeon  ', ['Play a new game', 'Continue last game', 'Quit'], 500, colorBar= COLOR_ORANGE)
 
         if choice == 0:  #new game
+            pygame.mixer.music.stop()
             new_game()
             play()
         if choice == 1:  #load last game
+            pygame.mixer.music.stop()
             try:
                 load_game()
                 play()
@@ -1000,6 +1045,7 @@ def main_menu():
                 print('No saved game to load')
                 continue
         elif choice == 2:  #quit
+            pygame.mixer.music.stop()
             pygame.quit()
             sys.exit()
 
