@@ -15,16 +15,16 @@ TODO:
 Main:
     Levels, with specific monsters
     New Walls
-    Fog of War
+    (*) Fog of War - Simplistics Done
     Stats and rules
     Experience
     Movement by pixel and not by side (?)
-    Distance damage
+    (*) Distance damage
 
 Side:
     (*) Door opened
     (*) Music
-    Exploration: change floor color
+    (*) Exploration: change floor color
     (*) Inventory button
     Stat button
     On a reload, erase previous monster and keep doors opened
@@ -354,10 +354,11 @@ class Tile:
         '''
         # Load the main surface
 
-        goodImage = pygame.image.load('resources/images/TileA5.png').convert()
+        goodImage = pygame.image.load('resources/images/TileA6.png').convert()
+        darkImage = pygame.image.load('resources/images/TileA5.png').convert()
         Tile.IMG_Floor = goodImage.subsurface((0,192,32,32)).copy()
         Tile.IMG_Floor_NotVisited = goodImage.subsurface((0,0,32,32)).copy()
-        Tile.IMG_Floor_Explored = goodImage.subsurface((0,64,32,32)).copy()
+        Tile.IMG_Floor_Explored = darkImage.subsurface((0,192,32,32)).copy()
 
         mainImage1 = pygame.image.load('resources/images/testownwall.png')
         Tile.IMG_WALL1 = {
@@ -462,13 +463,15 @@ class Tile:
                 self.exploredImage.blit(Tile.IMG_DOOR[1], (0,0))
 
     def draw(self):
-        if self.spriteImage != None:
-            if not self.explored:
-                entireWindowSurface.blit(self.unknownImage, worldmap.getTileTop(self.x, self.y))
-            elif self.currentlyVisible:
-                entireWindowSurface.blit(self.spriteImage, worldmap.getTileTop(self.x, self.y))
-            else:
-                entireWindowSurface.blit(self.exploredImage, worldmap.getTileTop(self.x, self.y))
+        if not self.explored:
+            entireWindowSurface.blit(self.unknownImage, worldmap.getTileTop(self.x, self.y))
+        elif self.currentlyVisible:
+            entireWindowSurface.blit(self.spriteImage, worldmap.getTileTop(self.x, self.y))
+        else:
+            entireWindowSurface.blit(self.exploredImage, worldmap.getTileTop(self.x, self.y))
+
+    def isExplored(self):
+        return self.explored
 
     def setExplored(self):
         self.explored = True
@@ -480,10 +483,15 @@ class Tile:
                 self.spriteImage.blit(Tile.IMG_DOOR[2], (0,0))
             else:
                 self.exploredImage.blit(Tile.IMG_DOOR[3], (0,0))
-                self.spriteImage.blit(Tile.IMG_DOOR[2], (0,0))
+                self.spriteImage.blit(Tile.IMG_DOOR[3], (0,0))
 
     def setVisible(self):
         self.currentlyVisible = True
+        self.explored = True
+
+    def removeVisible(self):
+        self.currentlyVisible = False
+
 
 class Object:
     #this is a generic object: the player, a monster, an item, the stairs...
@@ -558,14 +566,7 @@ class Object:
                     self.spriteImage = self.animObj_DOWN
                 else:
                     self.spriteImage = self.animObj_UP
-        if self == player:
-            worldmap.getTileAt(self.x+1,self.y).setVisible()
-            worldmap.getTileAt(self.x,self.y+1).setVisible()
-            worldmap.getTileAt(self.x+1,self.y+1).setVisible()
-            worldmap.getTileAt(self.x-1,self.y).setVisible()
-            worldmap.getTileAt(self.x,self.y-1).setVisible()
-            worldmap.getTileAt(self.x-1,self.y-1).setVisible()
-            worldmap.getTileAt(self.x,self.y).setExplored()
+
 
 
     def draw(self):
@@ -573,7 +574,11 @@ class Object:
         if self.needRewrite:
             if self == player:
                 worldmap.getTileAt(self.x, self.y).setExplored()
-            self.spriteImage.blit(entireWindowSurface, worldmap.getTileTop(self.x, self.y))
+            if self != player:
+                if worldmap.getTileAt(self.x, self.y).isExplored():
+                    self.spriteImage.blit(entireWindowSurface, worldmap.getTileTop(self.x, self.y))
+            else:
+                self.spriteImage.blit(entireWindowSurface, worldmap.getTileTop(self.x, self.y))
             self.needRewrite = False
 
 
@@ -614,6 +619,9 @@ class Object:
         dy = other.y - self.y
         return math.sqrt(dx ** 2 + dy ** 2)
 
+    def distance(self, x, y):
+        #return the distance to some coordinates
+        return math.sqrt((x - self.x) ** 2 + (y - self.y) ** 2)
 
 class Fighter:
     #combat-related properties and methods (monster, player, NPC).
@@ -664,6 +672,22 @@ class BasicMonster:
         elif distance < 2 and player.fighter.hp > 0:
             monster.fighter.attack(player)
 
+class ConfusedMonster:
+    #AI for a temporarily confused monster (reverts to previous AI after a while).
+    def __init__(self, old_ai, num_turns=10):
+        self.old_ai = old_ai
+        self.num_turns = num_turns
+
+    def take_turn(self):
+        if self.num_turns > 0:  #still confused...
+            #move in a random direction, and decrease the number of turns confused
+            self.owner.move(randint(-1, 1), randint(-1, 1))
+            self.num_turns -= 1
+
+        else:  #restore the previous AI (this one will be deleted because it's not referenced anymore)
+            self.owner.ai = self.old_ai
+            messageBox.print('The ' + self.owner.name + ' is no longer confused!', color=COLOR_RED)
+
 class Item:
     #an item that can be picked up and used.
     def __init__(self, use_function=None):
@@ -685,6 +709,14 @@ class Item:
         else:
             if self.use_function() != 'cancelled':
                 inventory.remove(self.owner)  #destroy after use, unless it was cancelled for some reason
+
+    def drop(self):
+        #add to the map and remove from the player's inventory. also, place it at the player's coordinates
+        worldobjects.append(self.owner)
+        inventory.remove(self.owner)
+        self.owner.x = player.x
+        self.owner.y = player.y
+        messageBox.print('You dropped a ' + self.owner.name + '.')
 
 def render_all():
     #draw all objects in the list
@@ -722,7 +754,89 @@ def player_move_or_attack(dx, dy):
         player.fighter.attack(target)
     else:
         player.move(dx, dy)
-        fov_recompute = True
+        recomputeFog(player.x, player.y)
+
+
+def recomputeFog(centerX, centerY):
+    FOG_SIZE = 4
+    # The fog of war is removed on a 4 by 4 cross.
+    minX = max(0,centerX - FOG_SIZE)
+    minY = max(0,centerY - FOG_SIZE)
+    maxX = min(GAME_NB_TILE_X, centerX + FOG_SIZE)
+    maxY = min(GAME_NB_TILE_Y, centerY + FOG_SIZE)
+    # This is the size that will be ultimately repaint - the player can only move by 1
+    minXPaint = max(0,centerX - (FOG_SIZE+1))
+    minYPaint = max(0,centerY - (FOG_SIZE+1))
+    maxXPaint = min(GAME_NB_TILE_X, centerX + (FOG_SIZE+1))
+    maxYPaint = min(GAME_NB_TILE_Y, centerY + (FOG_SIZE+1))
+
+    # Not a nice way, but efficient
+    for x in range(minXPaint,maxXPaint):
+        for y in range(minYPaint, maxYPaint):
+            worldmap.getTileAt(x,y).removeVisible()
+
+    # Explore the x range:
+    xindex = 0
+    while xindex <= FOG_SIZE and centerX + xindex < maxX:
+        worldmap.getTileAt(centerX+xindex,centerY).setVisible()
+        if worldmap.getTileAt(centerX+xindex,centerY).block_sight:
+            break
+        xindex += 1
+
+    xindex = 0
+    while xindex <= FOG_SIZE and centerX - xindex > minX:
+        worldmap.getTileAt(centerX-xindex,centerY).setVisible()
+        if worldmap.getTileAt(centerX-xindex,centerY).block_sight:
+            break
+        xindex += 1
+
+    # Explore the y range:
+    for y in range(0,FOG_SIZE):
+        if centerY + y < maxY:
+            worldmap.getTileAt(centerX,centerY+y).setVisible()
+            if worldmap.getTileAt(centerX,centerY+y).block_sight:
+                break
+
+            xindex = 0
+            while xindex <= FOG_SIZE-y and centerX + xindex < maxX:
+                worldmap.getTileAt(centerX+xindex,centerY+y).setVisible()
+                if worldmap.getTileAt(centerX+xindex,centerY+y).block_sight:
+                    break
+                xindex += 1
+
+            xindex = 0
+            while xindex <= FOG_SIZE-y and centerX - xindex > minX:
+                worldmap.getTileAt(centerX-xindex,centerY+y).setVisible()
+                if worldmap.getTileAt(centerX-xindex,centerY+y).block_sight:
+                    break
+                xindex += 1
+
+    for y in range(0,FOG_SIZE):
+        if centerY - y > minY:
+            worldmap.getTileAt(centerX,centerY-y).setVisible()
+            if worldmap.getTileAt(centerX,centerY-y).block_sight:
+                break
+
+            xindex = 0
+            while xindex <= FOG_SIZE-y and centerX + xindex < maxX:
+                worldmap.getTileAt(centerX+xindex,centerY-y).setVisible()
+                if worldmap.getTileAt(centerX+xindex,centerY-y).block_sight:
+                    break
+                xindex += 1
+
+            xindex = 0
+            while xindex <= FOG_SIZE-y and centerX - xindex > minX:
+                worldmap.getTileAt(centerX-xindex,centerY-y).setVisible()
+                if worldmap.getTileAt(centerX-xindex,centerY-y).block_sight:
+                    break
+                xindex += 1
+
+
+    # Not a nice way, but efficient
+    for x in range(minXPaint,maxXPaint):
+        for y in range(minYPaint, maxYPaint):
+            worldmap.getTileAt(x,y).draw()
+
 
 
 def player_death(player):
@@ -732,7 +846,7 @@ def player_death(player):
     game_state = 'dead'
 
     #for added effect, transform the player into a corpse!
-    player.spriteImage = pygame.image.load('resources/images/Close.png')
+    player.spriteImage = pyganim.PygAnimation([('resources/images/Mushroom003.png',1)])
     player.needRewrite = True
 
 def monster_death(monster):
@@ -748,6 +862,20 @@ def monster_death(monster):
     monster.needRewrite = True
     monster.name = 'remains of ' + monster.name
 
+def closest_monster(max_range):
+    #find closest enemy, up to a maximum range, and in the player's FOV
+    closest_enemy = None
+    closest_dist = max_range + 1  #start with (slightly more than) maximum range
+
+    for object in worldobjects:
+        if object.fighter and not object == player: #and libtcod.map_is_in_fov(fov_map, object.x, object.y):
+            #calculate distance between this object and the player
+            dist = player.distance_to(object)
+            if dist < closest_dist:  #it's closer, so remember it
+                closest_enemy = object
+                closest_dist = dist
+    return closest_enemy
+
 def cast_heal():
     #heal the player
     if player.fighter.hp == player.fighter.max_hp:
@@ -756,6 +884,67 @@ def cast_heal():
 
     messageBox.print('Your wounds start to feel better!')
     player.fighter.heal(randrange(4))
+
+def fire_bolt():
+    #trigger an explosion
+
+    #find closest enemy (inside a maximum range) and damage it
+    monster = closest_monster(5)
+    if monster is None:  #no enemy found within maximum range
+        messageBox.print('No enemy is close enough to strike.', color=COLOR_RED)
+        return 'cancelled'
+    damage = randrange(10)
+    #zap it!
+    messageBox.print('A lighting bolt strikes the ' + monster.name + ' with a loud thunder! The damage is '
+        + str(damage) + ' hit points.', color=COLOR_ORANGE)
+    monster.fighter.take_damage(damage)
+
+
+def cast_fireball():
+    fireball_radius = 3
+    fireball_damage = 5
+    #ask the player for a target tile to throw a fireball at
+    messageBox.print('Click a mosnterfor the fireball (damage around!), or escape to cancel.')
+    mainTarget = target_monster()
+    if mainTarget is None: return 'cancelled'
+    (x, y) = (mainTarget.x, mainTarget.y)
+    messageBox.print('The fireball explodes, burning everything within ' + str(fireball_radius) + ' tiles!')
+
+    for obj in worldobjects:  #damage every fighter in range, including the player
+        if obj.distance(x, y) <= fireball_radius and obj.fighter:
+            messageBox.print('The ' + obj.name + ' gets burned for ' + str(fireball_damage) + ' hit points.')
+            obj.fighter.take_damage(fireball_damage)
+
+def cast_confuse():
+    confuse_range=3
+    #ask the player for a target to confuse
+    messageBox.print('Click an enemy to confuse it, or escape to cancel.')
+    monster = target_monster(confuse_range)
+    if monster is None: return 'cancelled'
+
+    #replace the monster's AI with a "confused" one; after some turns it will restore the old AI
+    old_ai = monster.ai
+    monster.ai = ConfusedMonster(old_ai)
+    monster.ai.owner = monster  #tell the new component who owns it
+    messageBox.print('The eyes of the ' + monster.name + ' look vacant, as he starts to stumble around!')
+
+
+def target_monster(max_range=None):
+    #returns a clicked monster inside FOV up to a range, or None if right-clicked
+    while True:
+        for event in pygame.event.get():
+            if event.type == QUIT:
+                return None
+
+            if event.type == MOUSEBUTTONDOWN:
+                # player is suppposed at 466,365.. Small hack there
+                (clickx,clicky) = event.pos
+                tilex = player.x + int(float(clickx - 466) / IMG_SIZE_TILE_X)
+                tiley = player.y + int(float(clicky - 365) / IMG_SIZE_TILE_Y)
+                print("X/Y:" + str(tilex) + str(tiley))
+                for object in worldobjects:
+                    if object.fighter and not object == player and (max_range is None or player.distance(tilex, tiley) <= max_range) and object.x == tilex and object.y == tiley: #and libtcod.map_is_in_fov(fov_map, object.x, object.y):
+                        return object
 
 def handle_key():
     dx = dy = 0
@@ -810,6 +999,13 @@ def handle_key():
                     chosen_item = inventory_menu('Use one of:')
                     if chosen_item is not None:
                         chosen_item.use()
+
+                if event.key == K_d:
+                #show the inventory; if an item is selected, drop it
+                    chosen_item = inventory_menu('Press the key next to an item to drop it, or any other to cancel.\n')
+                    if chosen_item is not None:
+                        chosen_item.drop()
+
                 return 'didnt-take-turn'
     if dx!=0 or dy != 0:
         player_move_or_attack(dx, dy)
@@ -846,6 +1042,8 @@ class MessageBox:
         for i in range(len(self.messages)):
             result.blit(surfaces[i], (0,i*fontHeight))
         self.surface.blit(result,self.textRect)
+
+        pygame.display.update(self.surface.get_rect())
 
 def menu(header, options, width, colorBar=COLOR_RED):
     ''' Shows a nice menu on top of the screen
@@ -982,20 +1180,52 @@ def new_game():
     fighter_component = Fighter(hp=30, defense=2, power=5, death_function=player_death)
     player = Object(worldmap.possibleBeginPlace[0][0], worldmap.possibleBeginPlace[0][1], 'player', config._sections['player'], blocks=True, fighter = fighter_component)
 
-    for i in range(1,GAME_NB_MONSTER+1):
-        monster_name='orc'
-        fighter_component = Fighter(hp=config.getint(monster_name, 'hp'), defense=config.getint(monster_name, 'defense'), power=config.getint(monster_name, 'power'), death_function = getattr(__main__,config.get(monster_name, 'death_function')))
-        ai_component = BasicMonster()
-        monster = Object(worldmap.possibleBeginPlace[i][0], worldmap.possibleBeginPlace[i][1], monster_name, config._sections[monster_name], blocks=True, fighter=fighter_component, ai=ai_component)
-        worldobjects.append(monster)
-    worldobjects.append(player)
+    placedObjects = 1
+    level = 1
+    levelName = 'Level ' + str(level)
 
-    for i in range(GAME_NB_MONSTER+1, 2*(GAME_NB_MONSTER+1)):
-        item_name='healing potion'
-        listing = config._sections[item_name]
-        item_component = Item(use_function=getattr(__main__,config.get(item_name, 'use_function')))
-        item = Object(worldmap.possibleBeginPlace[i][0], worldmap.possibleBeginPlace[i][1], item_name, config._sections[item_name], item=item_component)
-        worldobjects.append(item)
+    # How many items in Level 1?
+    itemList = (config.get(levelName, 'items')).split('#')
+    for item in itemList:
+        itemName = (item.split(','))[0]
+        itemQty = int((item.split(','))[1])
+
+        for i in range(itemQty):
+            listing = config._sections[itemName]
+            item_component = Item(use_function=getattr(__main__,config.get(itemName, 'use_function')))
+            item = Object(worldmap.possibleBeginPlace[placedObjects][0], worldmap.possibleBeginPlace[placedObjects][1], itemName, config._sections[itemName], item=item_component)
+            worldobjects.append(item)
+            placedObjects = placedObjects+1
+
+    monsterList = (config.get(levelName, 'monsters')).split('#')
+    for monster in monsterList:
+        monsterName = (monster.split(','))[0]
+        monsterQty = int((monster.split(','))[1])
+
+        for i in range(monsterQty):
+            fighter_component = Fighter(hp=config.getint(monsterName, 'hp'), defense=config.getint(monsterName, 'defense'), power=config.getint(monsterName, 'power'), death_function = getattr(__main__,config.get(monsterName, 'death_function')))
+            ai_component = BasicMonster()
+            monster = Object(worldmap.possibleBeginPlace[placedObjects][0], worldmap.possibleBeginPlace[placedObjects][1], monsterName, config._sections[monsterName], blocks=True, fighter=fighter_component, ai=ai_component)
+            worldobjects.append(monster)
+            placedObjects = placedObjects+1
+
+
+##    for i in range(1,GAME_NB_MONSTER+1):
+##        monster_name='orc'
+##        fighter_component = Fighter(hp=config.getint(monster_name, 'hp'), defense=config.getint(monster_name, 'defense'), power=config.getint(monster_name, 'power'), death_function = getattr(__main__,config.get(monster_name, 'death_function')))
+##        ai_component = BasicMonster()
+##        monster = Object(worldmap.possibleBeginPlace[i][0], worldmap.possibleBeginPlace[i][1], monster_name, config._sections[monster_name], blocks=True, fighter=fighter_component, ai=ai_component)
+##        worldobjects.append(monster)
+##
+##    for i in range(GAME_NB_MONSTER+1, 2*(GAME_NB_MONSTER+1)):
+##        item_name='healing potion'
+##        listing = config._sections[item_name]
+##        item_component = Item(use_function=getattr(__main__,config.get(item_name, 'use_function')))
+##        item = Object(worldmap.possibleBeginPlace[i][0], worldmap.possibleBeginPlace[i][1], item_name, config._sections[item_name], item=item_component)
+##        worldobjects.append(item)
+
+
+    worldobjects.append(player)
 
 
 def system_init():
@@ -1080,6 +1310,8 @@ def play():
             save_game()
             pygame.quit()
             sys.exit()
+
+        recomputeFog(player.x, player.y)
 
         #let monsters take their turn
         if game_state == 'playing' and player_action != 'didnt-take-turn':
