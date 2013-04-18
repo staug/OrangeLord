@@ -13,12 +13,12 @@
 TODO:
 
 Main:
-    Levels, with specific monsters
+    (*) Specific monsters by levels
+    Levels definition and stairs
     New Walls
     (*) Fog of War - Simplistics Done
     Stats and rules
     Experience
-    Movement by pixel and not by side (?)
     (*) Distance damage
 
 Side:
@@ -356,11 +356,14 @@ class Tile:
 
         goodImage = pygame.image.load('resources/images/TileA6.png').convert()
         darkImage = pygame.image.load('resources/images/TileA5.png').convert()
-        Tile.IMG_Floor = goodImage.subsurface((0,192,32,32)).copy()
-        Tile.IMG_Floor_NotVisited = goodImage.subsurface((0,0,32,32)).copy()
-        Tile.IMG_Floor_Explored = darkImage.subsurface((0,192,32,32)).copy()
 
-        mainImage1 = pygame.image.load('resources/images/testownwall.png')
+        floorindex = randrange(4)
+
+        Tile.IMG_Floor = goodImage.subsurface((floorindex*32,192,32,32)).copy()
+        Tile.IMG_Floor_NotVisited = goodImage.subsurface((0,0,32,32)).copy()
+        Tile.IMG_Floor_Explored = darkImage.subsurface((floorindex*32,192,32,32)).copy()
+
+        mainImage1 = pygame.image.load('resources/images/testownwall.png').convert_alpha()
         Tile.IMG_WALL1 = {
         0 :mainImage1.subsurface((0,0,32,32)).copy(),
         1 :mainImage1.subsurface((64,0,32,32)).copy(),
@@ -379,7 +382,7 @@ class Tile:
         14:mainImage1.subsurface((128,192,32,32)).copy(),
         15:mainImage1.subsurface((192,192,32,32)).copy(),
         }
-        mainImage2 = pygame.image.load('resources/images/testownwall2.png')
+        mainImage2 = pygame.image.load('resources/images/testownwall2.png').convert_alpha()
         Tile.IMG_WALL2 = {
         0 :mainImage2.subsurface((0,0,32,32)).copy(),
         1 :mainImage2.subsurface((64,0,32,32)).copy(),
@@ -399,7 +402,7 @@ class Tile:
         15:mainImage2.subsurface((192,192,32,32)).copy(),
         }
 
-        doorsImage = pygame.image.load('resources/images/doors.png')
+        doorsImage = pygame.image.load('resources/images/doors.png').convert_alpha()
         Tile.IMG_DOOR = {
         0 :doorsImage.subsurface((0,0,32,32)).copy(),
         1 :doorsImage.subsurface((64,0,32,32)).copy(),
@@ -820,7 +823,7 @@ def player_death(player):
     game_state = 'dead'
 
     #for added effect, transform the player into a corpse!
-    player.spriteImage = pyganim.PygAnimation([('resources/images/Mushroom003.png',1)])
+    player.spriteImage = pyganim.PygAnimation([('resources/images/tumb.png',1)])
     player.needRewrite = True
 
 def monster_death(monster):
@@ -828,7 +831,7 @@ def monster_death(monster):
     #attacked and doesn't move
     messageBox.print(monster.name.capitalize() + ' is dead!')
     monster.conductor_object = None
-    monster.spriteImage = pyganim.PygAnimation([('resources/images/Mushroom003.png',1)])
+    monster.spriteImage = pyganim.PygAnimation([('resources/images/tumb.png',1)])
     monster.spriteImage.play()
     monster.blocks = False
     monster.fighter = None
