@@ -14,18 +14,18 @@ import pygame
 DISP_GAME_WIDTH = 1024
 DISP_GAME_HEIGHT = 768
 
-DISP_PLAYABLE_WIDTH = 900
-DISP_PLAYABLE_HEIGHT = 600
+DISP_PLAYABLE_WIDTH = 832
+DISP_PLAYABLE_HEIGHT = 512
 
 DISP_BUTTON_WIDTH = 100
 DISP_BUTTON_HEIGHT = 30
 
-DISP_MESSAGE_HEIGHT = 140
 
 DISP_SEP_WIDTH = (DISP_GAME_WIDTH - (DISP_BUTTON_WIDTH+DISP_PLAYABLE_WIDTH)) / 5
 DISP_SEP_HEIGHT = (DISP_GAME_HEIGHT - (DISP_BUTTON_HEIGHT+DISP_PLAYABLE_HEIGHT)) / 3
 
 DISP_MESSAGE_WIDTH = DISP_GAME_WIDTH - 2*DISP_SEP_WIDTH
+DISP_MESSAGE_HEIGHT = DISP_GAME_HEIGHT - (2*20+DISP_PLAYABLE_HEIGHT)
 
 DISP_INVENTORY_WIDTH=500
 
@@ -35,11 +35,11 @@ IMG_SIZE_TILE_X = 32
 IMG_SIZE_TILE_Y = 32
 
 # CONSTANTS FOR GAMES
-GAME_NB_MONSTER = 15
+#GAME_NB_MONSTER = 15
 GAME_NB_TILE_X = 120
-GAME_NB_TILE_Y = 90
-
-GAME_MINIMUM_START_PLACE = 900 # Any world generated with less than this will be discarded
+GAME_NB_TILE_Y = 120
+GAME_FOG_RADIUS = 4
+#GAME_MINIMUM_START_PLACE = 900 # Any world generated with less than this will be discarded
 
 # Font
 GAME_FONT='resources/calibrib.ttf'
@@ -51,3 +51,15 @@ COLOR_BLACK=(0,0,0)
 COLOR_RED=(240,0,0)
 COLOR_GREEN=(0,240,0)
 COLOR_ORANGE=(255,165,0)
+
+# ----------------------------------------------
+# GAME RULES RELATED CONSTANT
+ORIGIN_LIST = ['human', 'barbare', 'dwarf', 'high elf', 'half elf', 'sylvan elf', 'dark elf', 'orc', 'half orc', 'goblin', 'ogre', 'hobbit', 'gnome']
+WORK_LIST = ['fighter', 'ninja', 'robber', 'priest', 'sorcerer', 'knight', 'ranger', 'bard', 'merchant', 'engineer', 'pirate', 'noble']
+
+COMPETENCY_LIST = {
+'human': [],
+'human_choice': [], #ALL COMPETENCES...
+'barbare': ['AMBIDEXTRIE', 'CHERCHER DES NOISES', 'SENTIR DES PIEDS', 'TÊTE VIDE'],
+'barbare_choice': ['armes de bourrin', 'bourre-pif', 'chevaucher', 'escalader', 'intimider', 'nager', 'pister', 'tirer correctement', 'truc de mauviette']
+}
