@@ -95,7 +95,15 @@ class MessageBox:
 
         pygame.display.update(self.surface.get_rect())
 
-def target_monsters(maxRange=None, rangeRadius=1, limitToOne=True, includesPlayer=False):
+def target_objects(maxDistanceFromPlayer=None, rangeRadius=1, limitToOne=True, includesPlayer=False):
+    '''
+    Returns an array of objects containing objects:
+        - that are located at the click position +/- the range radius
+        - that are at a distance less or equal to the maxDistanceFromPlayer
+        - if limitToOne is set to true, the first object is returned
+        - if includesPlayer is set to true, returns also the player
+    The objects needs to be in a visible tile.
+    '''
     #returns a clicked monster inside FOV up to a range, or None if right-clicked
     while True:
         for event in pygame.event.get():
@@ -103,7 +111,6 @@ def target_monsters(maxRange=None, rangeRadius=1, limitToOne=True, includesPlaye
                 return None
 
             if event.type == MOUSEBUTTONDOWN:
-                # player is suppposed at 466,365.. Small hack there
                 (clickx,clicky) = event.pos
                 playableleft = max(GameGlobals.player.x*IMG_SIZE_TILE_X - (DISP_PLAYABLE_WIDTH)/2,0)
                 playabletop = max(GameGlobals.player.y*IMG_SIZE_TILE_Y - (DISP_PLAYABLE_HEIGHT)/2,0)
@@ -111,19 +118,21 @@ def target_monsters(maxRange=None, rangeRadius=1, limitToOne=True, includesPlaye
                     playabletop = GAME_NB_TILE_Y*IMG_SIZE_TILE_Y - DISP_PLAYABLE_HEIGHT
                 if GameGlobals.player.x*IMG_SIZE_TILE_X + (DISP_PLAYABLE_WIDTH)/2 > GAME_NB_TILE_X*IMG_SIZE_TILE_X:
                     playableleft = GAME_NB_TILE_X*IMG_SIZE_TILE_X - DISP_PLAYABLE_WIDTH
-                tilex = int((clickx + playableleft)/IMG_SIZE_TILE_X)
-                tiley = int((clicky + playabletop)/IMG_SIZE_TILE_Y)
-                if limitToOne:
-                    for anobject in GameGlobals.levelobjects:
-                        if anobject.fighter and (includesPlayer or not anobject == GameGlobals.player) and (max_range is None or GameGlobals.player.distance(tilex, tiley) <= max_range) and anobject.x in range(tilex-rangeRadius, tilex+rangeRadius) and anobject.y in (tiley-rangeRadius, tiley+rangeRadius) and GameGlobals.levelmap.getTileAt(tilex, tiley).isVisible():
-                            return object
+                tilex = int((clickx -10 + playableleft)/IMG_SIZE_TILE_X)
+                tiley = int((clicky -10 + playabletop)/IMG_SIZE_TILE_Y)
 
-                else:
-                    monsterList = []
-                    for anobject in GameGlobals.levelobjects:
-                        if anobject.fighter and (includesPlayer or not anobject == GameGlobals.player) and (max_range is None or GameGlobals.player.distance(tilex, tiley) <= max_range) and anobject.x in range(tilex-rangeRadius, tilex+rangeRadius) and anobject.y in (tiley-rangeRadius, tiley+rangeRadius) and GameGlobals.levelmap.getTileAt(tilex, tiley).isVisible():
-                            monsterList.append(anobject)
-                    return monsterList
+                monsterList = []
+                for obj in GameGlobals.levelobjects:
+                    if (obj.x in range(tilex-rangeRadius, tilex+rangeRadius) and obj.y in range(tiley-rangeRadius, tiley+rangeRadius) and obj.fighter!= None) and  GameGlobals.levelmap.getRoomOfTile(obj.x, obj.y).name ==  GameGlobals.levelmap.getRoomOfTile(GameGlobals.player.x, GameGlobals.player.y).name:
+                        # print( GameGlobals.levelmap.getRoomOfTile(obj.x, obj.y).name +'-'+GameGlobals.levelmap.getRoomOfTile(GameGlobals.player.x, GameGlobals.player.y).name)
+                        if (maxDistanceFromPlayer == None or GameGlobals.player.distance(obj.x, obj.y) <= maxDistanceFromPlayer):
+                            if (includesPlayer == True or obj != GameGlobals.player):
+                                # We have an object that is eligible...
+                                if (limitToOne == True):
+                                    return obj
+                                monsterList.append(obj)
+                return monsterList
+
 
 
 def menu(header, options, width, colorBar=COLOR_RED):
@@ -143,8 +152,8 @@ def menu(header, options, width, colorBar=COLOR_RED):
     #create an off-screen console that represents the menu's window
     window = pygame.Surface((width, height))
     window.fill(COLOR_BLACK)
-    rect2 = AAfilledRoundedRect(gameSurface, pygame.Rect(DISP_GAME_WIDTH/2 - width/2 -10 , DISP_GAME_HEIGHT/2 - height/2 - 10, width +20, height+20), COLOR_GREEN)
-    #pygame.draw.rect(window, colorBar, window.get_rect().copy(), font.size(header)[1])
+    #rect2 = AAfilledRoundedRect(gameSurface, pygame.Rect(DISP_GAME_WIDTH/2 - width/2 -10 , DISP_GAME_HEIGHT/2 - height/2 - 10, width +20, height+20), COLOR_GREEN)
+    pygame.draw.rect(window, colorBar, window.get_rect().copy(), font.size(header)[1])
 
     #print the header - with a black background...
     window.blit(font.render(header,1,COLOR_WHITE, COLOR_BLACK), (fontHeight,0))
@@ -215,7 +224,7 @@ def render_bar(x, y, total_width, total_height, name, value, maximum, bar_color,
     ''' The bar is located at x,y part of the screen
     '''
     #render a bar (HP, experience, etc). first calculate the width of the bar
-    bar_width = int(float(value) / maximum * total_width)
+    bar_width = max(1, int(float(value) / maximum * total_width))
 
     #render the background first
     totalBar = pygame.Surface((total_width, total_height))
@@ -268,7 +277,7 @@ def main_menu():
 
         if choice == 0:  #new game
             pygame.mixer.music.stop()
-            new_game()
+            new_game(1)
             play()
         if choice == 1:  #load last game
             pygame.mixer.music.stop()
@@ -283,7 +292,7 @@ def main_menu():
             pygame.quit()
             sys.exit()
 
-def new_game():
+def new_game(level):
     #global levelmap, levelobjects, gameState, player, inventory
 
     config = configparser.RawConfigParser()
@@ -300,7 +309,6 @@ def new_game():
 
     itemQty = monsterQty = 0
 
-    level = 1
     levelName = 'Level ' + str(level)
 
     # How many items in Level 1?
@@ -331,14 +339,14 @@ def new_game():
         monsterQty = int((monster.split(','))[1])
 
         for i in range(monsterQty):
-            fighter_component = Fighter(hp=config.getint(monsterName, 'hp'), defense=config.getint(monsterName, 'defense'), power=config.getint(monsterName, 'power'), death_function = getattr(__main__,config.get(monsterName, 'death_function')))
+            fighter_component = Fighter(hp=config.getint(monsterName, 'hp'), defense=config.getint(monsterName, 'defense'), power=config.getint(monsterName, 'power'), xp=config.getint(monsterName, 'xp'), wealth=config.getint(monsterName, 'wealth'), death_function = getattr(__main__,config.get(monsterName, 'death_function')))
             ai_component = BasicMonster()
             monster = Object(0,0, monsterName, config._sections[monsterName], blocks=True, fighter=fighter_component, ai=ai_component)
             GameGlobals.levelobjects.append(monster)
             globalMonsterQty += 1
 
     # Generate Map
-    GameGlobals.levelmap = Dungeon((GAME_NB_TILE_X,GAME_NB_TILE_Y),levelName,50,(4,4),(10,12),globalItemQty,globalMonsterQty)
+    GameGlobals.levelmap = Dungeon((GAME_NB_TILE_X,GAME_NB_TILE_Y),level,50,(4,4),(10,12),globalItemQty,globalMonsterQty)
     GameGlobals.levelmap.generate_dungeon()
 
     totalplace = GameGlobals.levelmap.item_locs + GameGlobals.levelmap.monster_locs
@@ -347,10 +355,14 @@ def new_game():
         object.setLocation(totalplace[index])
         index += 1
 
+    # Stairs
+    GameGlobals.levelobjects.append(ObjectFighter.Object(GameGlobals.levelmap.pos_stairup[0], GameGlobals.levelmap.pos_stairup[1], 'Stair going up', {'image_file':'resources/images/abigaba_nethack_bis.png','image_animated':'none','image_size_x':'32','image_size_y':'32','image_single':'(415,670)'}))
+    GameGlobals.levelobjects.append(ObjectFighter.Object(GameGlobals.levelmap.pos_stairdown[0], GameGlobals.levelmap.pos_stairdown[1], 'Stair going down', {'image_file':'resources/images/abigaba_nethack_bis.png','image_animated':'none','image_size_x':'32','image_size_y':'32','image_single':'(447,670)'}))
+
+
     # PLAYER
     fighter_component = Fighter(hp=30, defense=2, power=5, death_function=player_death)
     fighter_component.playerBirth()
-    print(fighter_component.print_stat())
     GameGlobals.player = Object(0,0, 'player', config._sections['player'], blocks=True, fighter = fighter_component)
     GameGlobals.player.setLocation(GameGlobals.levelmap.pos_stairup)
     GameGlobals.levelobjects.append(GameGlobals.player)
@@ -442,8 +454,8 @@ def handle_key():
                     playabletop = GAME_NB_TILE_Y*IMG_SIZE_TILE_Y - DISP_PLAYABLE_HEIGHT
                 if GameGlobals.player.x*IMG_SIZE_TILE_X + (DISP_PLAYABLE_WIDTH)/2 > GAME_NB_TILE_X*IMG_SIZE_TILE_X:
                     playableleft = GAME_NB_TILE_X*IMG_SIZE_TILE_X - DISP_PLAYABLE_WIDTH
-                tilex = int((clickx + playableleft)/IMG_SIZE_TILE_X)
-                tiley = int((clicky + playabletop)/IMG_SIZE_TILE_Y)
+                tilex = int((clickx-10 + playableleft)/IMG_SIZE_TILE_X)
+                tiley = int((clicky-10 + playabletop)/IMG_SIZE_TILE_Y)
 
                 names = [obj.name for obj in GameGlobals.levelobjects if (obj.x in (tilex, tilex-1, tilex+1) and obj.y in (tiley, tiley-1, tiley+1))]
                 names = ', '.join(names)
@@ -484,6 +496,9 @@ def handle_key():
                     if chosen_item is not None:
                         chosen_item.drop()
 
+                if event.key == K_c:
+                #Display the player characteristics
+                    GameGlobals.messageBox.print(GameGlobals.player.fighter.print_stat(), COLOR_GREEN)
                 return 'didnt-take-turn'
     if dx!=0 or dy != 0:
         player_move_or_attack(dx, dy)

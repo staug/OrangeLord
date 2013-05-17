@@ -20,6 +20,7 @@ import random, math
 import time
 import pygame
 import GameGlobals
+import ObjectFighter
 
 from astar import *
 from distance_map import *
@@ -264,6 +265,7 @@ class Dungeon:
         self.pos_stairup = (0,0)
         self.item_locs = []
         self.monster_locs = []
+        self.traps = []
 
 
     def print_info(self, grid=False):
@@ -529,6 +531,12 @@ class Dungeon:
             location = random.choice(possible_places)
             possible_places.remove(location)
             self.monster_locs.append(location)
+
+        for i in range(0, 15):
+            traplocation = random.choice(possible_places)
+            possible_places.remove(traplocation)
+            self.traps.append(Trap(traplocation[0], traplocation[1]))
+
         '''
         possible_places = []
         for y in range(0, GAME_NB_TILE_Y):
@@ -654,6 +662,10 @@ class Dungeon:
         if self.tileset[y][x].roomIndex != None:
             return self.rooms[self.tileset[y][x].roomIndex]
         return None
+
+    def testTrap(self):
+        for trap in self.traps:
+            trap.playerTriggerTrap()
 
     def computeFogOfWar(self, x, y, radius = GAME_FOG_RADIUS):
         '''
@@ -888,9 +900,9 @@ class Tile:
                     else:
                         self.visibleImage.blit(Tile.IMG_WALL3[self.tileIndex], (0,0))
                 elif self.tileType == 'DOOR' and (self.tileIndex == 1 or self.tileIndex == 4 or self.tileIndex == 5):
-                    self.visibleImage.blit(Tile.IMG_DOOR[0], (0,0))
+                    self.visibleImage.blit(Tile.IMG_DOOR[2], (0,0))
                 elif self.tileType == 'DOOR':
-                    self.visibleImage.blit(Tile.IMG_DOOR[1], (0,0))
+                    self.visibleImage.blit(Tile.IMG_DOOR[3], (0,0))
             GameGlobals.entireWindowSurface.blit(self.visibleImage, (tiletopx,tiletopy))
         else:
             if forcemode or self.exploredImage == None:
@@ -905,11 +917,27 @@ class Tile:
                     else:
                         self.exploredImage.blit(Tile.IMG_WALL3[self.tileIndex], (0,0))
                 elif self.tileType == 'DOOR' and (self.tileIndex == 1 or self.tileIndex == 4 or self.tileIndex == 5):
-                    self.exploredImage.blit(Tile.IMG_DOOR[2], (0,0))
+                    self.exploredImage.blit(Tile.IMG_DOOR[0], (0,0))
                 elif self.tileType == 'DOOR':
-                    self.exploredImage.blit(Tile.IMG_DOOR[3], (0,0))
+                    self.exploredImage.blit(Tile.IMG_DOOR[1], (0,0))
             GameGlobals.entireWindowSurface.blit(self.exploredImage, (tiletopx,tiletopy))
 
+
+class Trap:
+    def __init__(self, x, y, maxDamage=10):
+        self.name = 'trap of ' + random.choice(['light','gas','fire','ice'])
+        self.x = x
+        self.y = y
+        self.damage = random.randrange(1,maxDamage)
+        self.triggered = False
+
+    def playerTriggerTrap(self):
+        if self.x == GameGlobals.player.x and self.y== GameGlobals.player.y and not(self.triggered):
+            GameGlobals.messageBox.print('You triggered a ' + self.name + ' resulting in ' + str(self.damage) + ' damages!')
+            GameGlobals.player.fighter.take_damage(self.damage)
+            self.triggered = True
+            # Display it as an object...
+            GameGlobals.levelobjects.append(ObjectFighter.Object(self.x, self.y, 'Old ' + self.name, {'image_file':'resources/images/abigaba_nethack_bis.png','image_animated':'none','image_size_x':'32','image_size_y':'32','image_single':'(1088,670)'}))
 
 
 def main():

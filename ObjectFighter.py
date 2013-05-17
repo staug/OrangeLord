@@ -158,25 +158,28 @@ class Object:
 class Fighter:
 
     #combat-related properties and methods (monster, GameGlobals.player, NPC).
-    def __init__(self, hp, defense, power, death_function=None):
+    def __init__(self, hp, defense, power, xp = 0, wealth = 0, death_function=None):
         self.max_hp = hp
         self.hp = hp # vital energy
         self.defense = defense # defense, important!
         self.power = power # attack, important!
+        if wealth > 0:
+            self.wealth = random.randrange(wealth)
+        else: self.wealth = 0
+        self.xp=xp
         self.death_function = death_function
-        self.wealth = 0
 
-        # Naheulbleuk rules!
+        # Naheulbleuk rules - Player setting!
         self.courage = 0 # courage
-        self.wisdom = 0
-        self.charisma = 0
         self.dexterity = 0 #adresse
         self.strength = 0 #force
+        self.wisdom = 0
+        self.charisma = 0
         self.origin = ''
         self.work = ''
         self.mp = 0 # current astral energy
         self.max_mp = 0 # astral energy
-
+        self.destiny_point = 3 # Number of lifes
         self.competencies = []
 
 
@@ -186,6 +189,7 @@ class Fighter:
         self.charisma = random.randrange(7,13)
         self.dexterity = random.randrange(7,13)
         self.strength = random.randrange(7,13)
+        self.xp = 0
 
     def _rollOrigin(self):
         origins = []
@@ -293,6 +297,11 @@ class Fighter:
         self._modifyOriginalCharacteristics()
         self._addCompetencies()
         self.wealth = random.randrange(2,12) * 10
+
+    @property
+    def equipmentProtection(self):
+        if self.owner == GameGlobals.player:
+            return 0 + sum(equipment.power_bonus for equipment in get_all_equipped(self.owner))
 
     @property
     def magical_resistance(self):
@@ -425,8 +434,11 @@ def player_move_or_attack(dx, dy):
             GameGlobals.messageBox.print("You enter the " + str(newRoomName))
         #recomputeFog(GameGlobals.player.x, GameGlobals.player.y)
 
+    # Test if a trap has been triggered
+    GameGlobals.levelmap.testTrap()
 
-def player_death():
+
+def player_death(self):
     #the game ended!
     global game_state
     GameGlobals.messageBox.print('You died!')
@@ -437,9 +449,11 @@ def player_death():
     GameGlobals.player.needRewrite = True
 
 def monster_death(monster):
+    GameGlobals.messageBox.print(monster.name.capitalize() + ' is dead! - You win '+str(monster.fighter.xp)+' xp points and '+str(monster.fighter.wealth)+ ' wealth')
+    GameGlobals.player.fighter.xp += monster.fighter.xp
+    GameGlobals.player.fighter.wealth += monster.fighter.wealth
     #transform it into a nasty corpse! it doesn't block, can't be
     #attacked and doesn't move
-    GameGlobals.messageBox.print(monster.name.capitalize() + ' is dead!')
     monster.conductor_object = None
     monster.spriteImage = pyganim.PygAnimation([('resources/images/tumb.png',1)])
     monster.spriteImage.play()

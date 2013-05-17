@@ -20,7 +20,6 @@ DISP_PLAYABLE_HEIGHT = 512
 DISP_BUTTON_WIDTH = 100
 DISP_BUTTON_HEIGHT = 30
 
-
 DISP_SEP_WIDTH = (DISP_GAME_WIDTH - (DISP_BUTTON_WIDTH+DISP_PLAYABLE_WIDTH)) / 5
 DISP_SEP_HEIGHT = (DISP_GAME_HEIGHT - (DISP_BUTTON_HEIGHT+DISP_PLAYABLE_HEIGHT)) / 3
 
@@ -60,6 +59,6 @@ WORK_LIST = ['fighter', 'ninja', 'robber', 'priest', 'sorcerer', 'knight', 'rang
 COMPETENCY_LIST = {
 'human': [],
 'human_choice': [], #ALL COMPETENCES...
-'barbare': ['AMBIDEXTRIE', 'CHERCHER DES NOISES', 'SENTIR DES PIEDS', 'TÊTE VIDE'],
+'barbare': ['AMBIDEXTRIE', 'CHERCHER DES NOISES', 'SENTIR DES PIEDS', 'TÃŠTE VIDE'],
 'barbare_choice': ['armes de bourrin', 'bourre-pif', 'chevaucher', 'escalader', 'intimider', 'nager', 'pister', 'tirer correctement', 'truc de mauviette']
 }

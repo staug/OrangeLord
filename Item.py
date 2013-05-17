@@ -9,7 +9,7 @@
 # Licence:     <your licence>
 #-------------------------------------------------------------------------------
 
-import GameGlobals
+import GameGlobals, Game, GameConstants
 import ObjectFighter
 import Equipment
 import random
@@ -71,7 +71,7 @@ def cast_heal():
         return 'cancelled'
 
     GameGlobals.messageBox.print('Your wounds start to feel better!')
-    GameGlobals.player.fighter.heal(randrange(4))
+    GameGlobals.player.fighter.heal(random.randrange(10))
 
 def fire_bolt():
     #trigger an explosion
@@ -79,13 +79,27 @@ def fire_bolt():
     #find closest enemy (inside a maximum range) and damage it
     monster = closest_monster(5)
     if monster is None:  #no enemy found within maximum range
-        GameGlobals.messageBox.print('No enemy is close enough to strike.', color=COLOR_RED)
+        GameGlobals.messageBox.print('No enemy is close enough to strike.', color=GameConstants.COLOR_RED)
         return 'cancelled'
     damage = random.randrange(10)
     #zap it!
     GameGlobals.messageBox.print('A lighting bolt strikes the ' + monster.name + ' with a loud thunder! The damage is '
-        + str(damage) + ' hit points.', color=COLOR_ORANGE)
+        + str(damage) + ' hit points.', color=GameConstants.COLOR_ORANGE)
     monster.fighter.take_damage(damage)
+
+def closest_monster(max_range):
+    #find closest enemy, up to a maximum range, and in the player's FOV
+    closest_enemy = None
+    closest_dist = max_range + 1  #start with (slightly more than) maximum range
+
+    for object in GameGlobals.levelobjects:
+        if object.fighter and not object == GameGlobals.player: #and libtcod.map_is_in_fov(fov_map, object.x, object.y):
+            #calculate distance between this object and the player
+            dist = GameGlobals.player.distance_to(object)
+            if dist < closest_dist:  #it's closer, so remember it
+                closest_enemy = object
+                closest_dist = dist
+    return closest_enemy
 
 
 def cast_fireball():
@@ -93,21 +107,21 @@ def cast_fireball():
     fireball_damage = 5
     #ask the player for a target tile to throw a fireball at
     GameGlobals.messageBox.print('Click a mosnter for the fireball (damage around!), or escape to cancel.')
-    targets = target_monsters(maxRange=None, rangeRadius = fireball_radius, limitToOne = False, includesPlayer = True)
+    targets = Game.target_objects(maxDistanceFromPlayer=None, rangeRadius=fireball_radius, limitToOne=False, includesPlayer=True)
     if targets is None or len(targets) == 0: return 'cancelled'
     GameGlobals.messageBox.print('The fireball explodes, burning everything within ' + str(fireball_radius) + ' tiles!')
 
     for obj in GameGlobals.levelobjects:  #damage every fighter in range, including the player
         if obj in targets:
             damage = random.randrange(fireball_damage)
-            GameGlobals.messageBox.print('The ' + obj.name + ' gets burned for ' + damage + ' hit points.')
+            GameGlobals.messageBox.print('The ' + obj.name + ' gets burned for ' + str(damage) + ' hit points.')
             obj.fighter.take_damage(damage)
 
 def cast_confuse():
     confuse_range=3
     #ask the player for a target to confuse
     GameGlobals.messageBox.print('Click an enemy to confuse it, or escape to cancel.')
-    monster = target_monsters(maxRange=confuse_range, rangeRadius = 1, limitToOne = True, includesPlayer = False)
+    monster = Game.target_objects(maxDistanceFromPlayer=confuse_range, rangeRadius=1, limitToOne=True, includesPlayer=False)
     if monster is None: return 'cancelled'
 
     #replace the monster's AI with a "confused" one; after some turns it will restore the old AI
