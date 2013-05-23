@@ -686,9 +686,11 @@ class Dungeon:
                 dirtytilelist.append(self.getTileAt(xpos,ypos))
 
         connectionList = []
+
+
         # examine around the room
         for xvar in range(0, room.size[0]-1):
-            if self.grid[room.position[1]+0][room.position[0]+xvar] in (1,7):
+            if self.grid[room.position[1]][room.position[0]+xvar] in (1,7):
                 # NORTH
                 connectionList.append((room.position[0]+xvar, room.position[1]-2))
             if self.grid[room.position[1]+room.size[1]-1][room.position[0]+xvar] in (1,7):
@@ -700,6 +702,7 @@ class Dungeon:
                 connectionList.append((room.position[0]-2, room.position[1]+yvar))
             if self.grid[room.position[1]+yvar][room.position[0]+room.size[0]-1] in (1,7):
                 connectionList.append((room.position[0]+room.size[0]+2, room.position[1]+yvar))
+
 
         #Now we go through the nearby rooms, and we flag tehm as explored
         for neighborLoc in connectionList:
@@ -769,6 +772,8 @@ class Tile:
         Tile.IMG_Floor = goodImage.subsurface((floorindex*32,192,32,32)).copy()
         Tile.IMG_Floor_NotVisited = goodImage.subsurface((0,0,32,32)).copy()
         Tile.IMG_Floor_Explored = darkImage.subsurface((floorindex*32,192,32,32)).copy()
+        Tile.IMG_DIRTY_Floor = goodImage.subsurface((floorindex*32,224,32,32)).copy()
+        Tile.IMG_DIRTY_Floor_Explored = darkImage.subsurface((floorindex*32,224,32,32)).copy()
 
         mainImage1 = pygame.image.load('resources/images/testownwall.png').convert_alpha()
         Tile.IMG_WALL1 = {
@@ -854,6 +859,7 @@ class Tile:
 
         self.explored = self.currentlyVisible = False
 
+        self.dirtyIndex = random.randrange(0,50) #1 chance out of 50 to make it dirty
         self.visibleImage = None # Regular image
         self.exploredImage= None # Image after exploration
         self.initGraphics()
@@ -890,7 +896,11 @@ class Tile:
         elif self.currentlyVisible:
             if forcemode or self.visibleImage == None:
                 # initialize the image
-                self.visibleImage = Tile.IMG_Floor.copy()
+                if self.dirtyIndex == 0:
+                    self.visibleImage = Tile.IMG_DIRTY_Floor.copy()
+                else:
+                    self.visibleImage = Tile.IMG_Floor.copy()
+
                 if self.tileType == 'WALL' and self.tileIndex >= 0:
                     rand = random.randrange(3)
                     if rand == 0:
@@ -907,7 +917,10 @@ class Tile:
         else:
             if forcemode or self.exploredImage == None:
                 # initialize the image
-                self.exploredImage = Tile.IMG_Floor_Explored.copy()
+                if self.dirtyIndex == 0:
+                    self.exploredImage= Tile.IMG_DIRTY_Floor_Explored.copy()
+                else:
+                    self.exploredImage = Tile.IMG_Floor_Explored.copy()
                 if self.tileType == 'WALL' and self.tileIndex >= 0:
                     rand = random.randrange(3)
                     if rand == 0:
@@ -937,7 +950,7 @@ class Trap:
             GameGlobals.player.fighter.take_damage(self.damage)
             self.triggered = True
             # Display it as an object...
-            GameGlobals.levelobjects.append(ObjectFighter.Object(self.x, self.y, 'Old ' + self.name, {'image_file':'resources/images/abigaba_nethack_bis.png','image_animated':'none','image_size_x':'32','image_size_y':'32','image_single':'(1088,670)'}))
+            GameGlobals.levelobjects.append(ObjectFighter.Object(self.x, self.y, 'Old ' + self.name, {'image_file':'resources/images/abigaba_nethack_bis.png','image_animated':'none','image_size_x':'32','image_size_y':'32','image_top':'(1088,670)'}))
 
 
 def main():

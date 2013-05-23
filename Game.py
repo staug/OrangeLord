@@ -10,6 +10,7 @@
 #-------------------------------------------------------------------------------
 
 import pygame, pygbutton, shelve, configparser, GameGlobals, sys
+import pygame._view
 
 from pygame.locals import *
 from GameConstants import *
@@ -356,8 +357,8 @@ def new_game(level):
         index += 1
 
     # Stairs
-    GameGlobals.levelobjects.append(ObjectFighter.Object(GameGlobals.levelmap.pos_stairup[0], GameGlobals.levelmap.pos_stairup[1], 'Stair going up', {'image_file':'resources/images/abigaba_nethack_bis.png','image_animated':'none','image_size_x':'32','image_size_y':'32','image_single':'(415,670)'}))
-    GameGlobals.levelobjects.append(ObjectFighter.Object(GameGlobals.levelmap.pos_stairdown[0], GameGlobals.levelmap.pos_stairdown[1], 'Stair going down', {'image_file':'resources/images/abigaba_nethack_bis.png','image_animated':'none','image_size_x':'32','image_size_y':'32','image_single':'(447,670)'}))
+    GameGlobals.levelobjects.append(ObjectFighter.Object(GameGlobals.levelmap.pos_stairup[0], GameGlobals.levelmap.pos_stairup[1], 'Stair going up', {'image_file':'resources/images/abigaba_nethack_bis.png','image_animated':'none','image_size_x':'32','image_size_y':'32','image_top':'(415,670)'}))
+    GameGlobals.levelobjects.append(ObjectFighter.Object(GameGlobals.levelmap.pos_stairdown[0], GameGlobals.levelmap.pos_stairdown[1], 'Stair going down', {'image_file':'resources/images/abigaba_nethack_bis.png','image_animated':'none','image_size_x':'32','image_size_y':'32','image_top':'(447,670)'}))
 
 
     # PLAYER

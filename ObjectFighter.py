@@ -58,24 +58,25 @@ class Object:
         spriteSurface = pygame.image.load(self.resources['image_file'])
         self.spriteWidth = int(self.resources['image_size_x'])
         self.spriteHeight = int(self.resources['image_size_y'])
+        (xtop, ytop) = ast.literal_eval(self.resources['image_top'])
         # Now split the image
         if self.resources['image_animated'] == 'yes':
-            self.animObj_UP = pyganim.PygAnimation([(spriteSurface.subsurface(pygame.Rect(0,0,self.spriteWidth,self.spriteHeight)), 0.1),
-                           (spriteSurface.subsurface(pygame.Rect(self.spriteWidth,0,self.spriteWidth,self.spriteHeight)), 0.1),
-                           (spriteSurface.subsurface(pygame.Rect(self.spriteWidth*2,0,self.spriteWidth,self.spriteHeight)), 0.1)])
-            self.animObj_RIGHT = pyganim.PygAnimation([(spriteSurface.subsurface(pygame.Rect(0,self.spriteHeight,self.spriteWidth,self.spriteHeight)), 0.1),
-                           (spriteSurface.subsurface(pygame.Rect(self.spriteWidth,self.spriteHeight,self.spriteWidth,self.spriteHeight)), 0.1),
-                           (spriteSurface.subsurface(pygame.Rect(self.spriteWidth*2,self.spriteHeight,self.spriteWidth,self.spriteHeight)), 0.1)])
-            self.animObj_DOWN = pyganim.PygAnimation([(spriteSurface.subsurface(pygame.Rect(0,self.spriteHeight*2,self.spriteWidth,self.spriteHeight)), 0.1),
-                           (spriteSurface.subsurface(pygame.Rect(self.spriteWidth,self.spriteHeight*2,self.spriteWidth,self.spriteHeight)), 0.1),
-                           (spriteSurface.subsurface(pygame.Rect(self.spriteWidth*2,self.spriteHeight*2,self.spriteWidth,self.spriteHeight)), 0.1)])
-            self.animObj_LEFT = pyganim.PygAnimation([(spriteSurface.subsurface(pygame.Rect(0,self.spriteHeight*3,self.spriteWidth,self.spriteHeight)), 0.1),
-                           (spriteSurface.subsurface(pygame.Rect(self.spriteWidth,self.spriteHeight*3,self.spriteWidth,self.spriteHeight)), 0.1),
-                           (spriteSurface.subsurface(pygame.Rect(self.spriteWidth*2,self.spriteHeight*3,self.spriteWidth,self.spriteHeight)), 0.1)])
-            self.spriteImage = self.animObj_RIGHT #arbitrary
+            self.animObj_UP = pyganim.PygAnimation([(spriteSurface.subsurface(pygame.Rect(xtop,ytop,self.spriteWidth,self.spriteHeight)), 0.3),
+                           (spriteSurface.subsurface(pygame.Rect(xtop+self.spriteWidth,ytop,self.spriteWidth,self.spriteHeight)), 0.3),
+                           (spriteSurface.subsurface(pygame.Rect(xtop+self.spriteWidth*2,ytop,self.spriteWidth,self.spriteHeight)), 0.3)])
+            self.animObj_RIGHT = pyganim.PygAnimation([(spriteSurface.subsurface(pygame.Rect(xtop,ytop+self.spriteHeight,self.spriteWidth,self.spriteHeight)), 0.3),
+                           (spriteSurface.subsurface(pygame.Rect(xtop+self.spriteWidth,ytop+self.spriteHeight,self.spriteWidth,self.spriteHeight)), 0.3),
+                           (spriteSurface.subsurface(pygame.Rect(xtop+self.spriteWidth*2,ytop+self.spriteHeight,self.spriteWidth,self.spriteHeight)), 0.3)])
+            self.animObj_DOWN = pyganim.PygAnimation([(spriteSurface.subsurface(pygame.Rect(xtop,ytop+self.spriteHeight*2,self.spriteWidth,self.spriteHeight)), 0.3),
+                           (spriteSurface.subsurface(pygame.Rect(xtop+self.spriteWidth,ytop+self.spriteHeight*2,self.spriteWidth,self.spriteHeight)), 0.3),
+                           (spriteSurface.subsurface(pygame.Rect(xtop+self.spriteWidth*2,ytop+self.spriteHeight*2,self.spriteWidth,self.spriteHeight)), 0.3)])
+            self.animObj_LEFT = pyganim.PygAnimation([(spriteSurface.subsurface(pygame.Rect(xtop,ytop+self.spriteHeight*3,self.spriteWidth,self.spriteHeight)), 0.3),
+                           (spriteSurface.subsurface(pygame.Rect(xtop+self.spriteWidth,ytop+self.spriteHeight*3,self.spriteWidth,self.spriteHeight)), 0.3),
+                           (spriteSurface.subsurface(pygame.Rect(xtop+self.spriteWidth*2,ytop+self.spriteHeight*3,self.spriteWidth,self.spriteHeight)), 0.3)])
+            self.spriteImage = self.animObj_RIGHT #arbitrary start
 
         else:
-            self.spriteImage = self.animObj_DOWN = self.animObj_LEFT = self.animObj_RIGHT = self.animObj_UP = pyganim.PygAnimation([(spriteSurface.subsurface(pygame.Rect(ast.literal_eval(self.resources['image_single']),(self.spriteWidth, self.spriteHeight))),1)])
+            self.spriteImage = self.animObj_DOWN = self.animObj_LEFT = self.animObj_RIGHT = self.animObj_UP = pyganim.PygAnimation([(spriteSurface.subsurface(pygame.Rect((xtop, ytop),(self.spriteWidth, self.spriteHeight))),1)])
 
         conductor_object = pyganim.PygConductor([self.animObj_UP, self.animObj_RIGHT, self.animObj_DOWN, self.animObj_LEFT])
         conductor_object.play() # starts all three animations at the same time.
@@ -432,6 +433,7 @@ def player_move_or_attack(dx, dy):
         newRoomName = GameGlobals.levelmap.getRoomOfTile(GameGlobals.player.x, GameGlobals.player.y).name
         if newRoomName != oldRoomName:
             GameGlobals.messageBox.print("You enter the " + str(newRoomName))
+            GameGlobals.player.fighter.heal(random.randrange(0,3))
         #recomputeFog(GameGlobals.player.x, GameGlobals.player.y)
 
     # Test if a trap has been triggered

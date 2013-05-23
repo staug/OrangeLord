@@ -1,1 +1,4 @@
 http://www.angryfishstudios.com/2011/04/adventures-in-bitmasking/
+
+"Some (All) of graphic data in this software are free game resources distributed by REFMAP(http://www.tekepon.net/fsm).
+You must not use the graphic data which is in this software, for the purpose except playing this game. When you want to get these resources, go to the website above."

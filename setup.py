@@ -10,6 +10,7 @@
 # subdirectory that contains the files needed to run the script without Python
 
 import sys
+import pygame._view
 from cx_Freeze import setup, Executable
 
 base = None
@@ -21,11 +22,11 @@ executables = [
 ]
 
 
-
 buildOptions = dict(
         compressed = True,
-        includes = ["testfreeze_1", "testfreeze_2"],
-        path = sys.path + ["modules"])
+        includes = ["pygame", "shelve", "configparser", "sys", "ast", "math", "random"],
+        path = sys.path,
+        include_files=["resources"])
 
 setup(
         name = "OrangeLord",
