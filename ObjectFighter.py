@@ -15,6 +15,8 @@ import GameGlobals
 from Item import *
 from GameConstants import *
 
+import __main__
+
 class Object:
     #this is a generic object: the GameGlobals.player, a monster, an item, the stairs...
     #it's always represented by a character on screen.
@@ -61,18 +63,18 @@ class Object:
         (xtop, ytop) = ast.literal_eval(self.resources['image_top'])
         # Now split the image
         if self.resources['image_animated'] == 'yes':
-            self.animObj_UP = pyganim.PygAnimation([(spriteSurface.subsurface(pygame.Rect(xtop,ytop,self.spriteWidth,self.spriteHeight)), 0.3),
-                           (spriteSurface.subsurface(pygame.Rect(xtop+self.spriteWidth,ytop,self.spriteWidth,self.spriteHeight)), 0.3),
-                           (spriteSurface.subsurface(pygame.Rect(xtop+self.spriteWidth*2,ytop,self.spriteWidth,self.spriteHeight)), 0.3)])
-            self.animObj_RIGHT = pyganim.PygAnimation([(spriteSurface.subsurface(pygame.Rect(xtop,ytop+self.spriteHeight,self.spriteWidth,self.spriteHeight)), 0.3),
-                           (spriteSurface.subsurface(pygame.Rect(xtop+self.spriteWidth,ytop+self.spriteHeight,self.spriteWidth,self.spriteHeight)), 0.3),
-                           (spriteSurface.subsurface(pygame.Rect(xtop+self.spriteWidth*2,ytop+self.spriteHeight,self.spriteWidth,self.spriteHeight)), 0.3)])
-            self.animObj_DOWN = pyganim.PygAnimation([(spriteSurface.subsurface(pygame.Rect(xtop,ytop+self.spriteHeight*2,self.spriteWidth,self.spriteHeight)), 0.3),
-                           (spriteSurface.subsurface(pygame.Rect(xtop+self.spriteWidth,ytop+self.spriteHeight*2,self.spriteWidth,self.spriteHeight)), 0.3),
-                           (spriteSurface.subsurface(pygame.Rect(xtop+self.spriteWidth*2,ytop+self.spriteHeight*2,self.spriteWidth,self.spriteHeight)), 0.3)])
-            self.animObj_LEFT = pyganim.PygAnimation([(spriteSurface.subsurface(pygame.Rect(xtop,ytop+self.spriteHeight*3,self.spriteWidth,self.spriteHeight)), 0.3),
-                           (spriteSurface.subsurface(pygame.Rect(xtop+self.spriteWidth,ytop+self.spriteHeight*3,self.spriteWidth,self.spriteHeight)), 0.3),
-                           (spriteSurface.subsurface(pygame.Rect(xtop+self.spriteWidth*2,ytop+self.spriteHeight*3,self.spriteWidth,self.spriteHeight)), 0.3)])
+            self.animObj_UP = pyganim.PygAnimation([(spriteSurface.subsurface(pygame.Rect(xtop,ytop,self.spriteWidth,self.spriteHeight)), 0.2),
+                           (spriteSurface.subsurface(pygame.Rect(xtop+self.spriteWidth,ytop,self.spriteWidth,self.spriteHeight)), 0.2),
+                           (spriteSurface.subsurface(pygame.Rect(xtop+self.spriteWidth*2,ytop,self.spriteWidth,self.spriteHeight)), 0.2)])
+            self.animObj_RIGHT = pyganim.PygAnimation([(spriteSurface.subsurface(pygame.Rect(xtop,ytop+self.spriteHeight,self.spriteWidth,self.spriteHeight)), 0.2),
+                           (spriteSurface.subsurface(pygame.Rect(xtop+self.spriteWidth,ytop+self.spriteHeight,self.spriteWidth,self.spriteHeight)), 0.2),
+                           (spriteSurface.subsurface(pygame.Rect(xtop+self.spriteWidth*2,ytop+self.spriteHeight,self.spriteWidth,self.spriteHeight)), 0.2)])
+            self.animObj_DOWN = pyganim.PygAnimation([(spriteSurface.subsurface(pygame.Rect(xtop,ytop+self.spriteHeight*2,self.spriteWidth,self.spriteHeight)), 0.2),
+                           (spriteSurface.subsurface(pygame.Rect(xtop+self.spriteWidth,ytop+self.spriteHeight*2,self.spriteWidth,self.spriteHeight)), 0.2),
+                           (spriteSurface.subsurface(pygame.Rect(xtop+self.spriteWidth*2,ytop+self.spriteHeight*2,self.spriteWidth,self.spriteHeight)), 0.2)])
+            self.animObj_LEFT = pyganim.PygAnimation([(spriteSurface.subsurface(pygame.Rect(xtop,ytop+self.spriteHeight*3,self.spriteWidth,self.spriteHeight)), 0.2),
+                           (spriteSurface.subsurface(pygame.Rect(xtop+self.spriteWidth,ytop+self.spriteHeight*3,self.spriteWidth,self.spriteHeight)), 0.2),
+                           (spriteSurface.subsurface(pygame.Rect(xtop+self.spriteWidth*2,ytop+self.spriteHeight*3,self.spriteWidth,self.spriteHeight)), 0.2)])
             self.spriteImage = self.animObj_RIGHT #arbitrary start
 
         else:
@@ -158,39 +160,83 @@ class Object:
 
 class Fighter:
 
+
     #combat-related properties and methods (monster, GameGlobals.player, NPC).
-    def __init__(self, hp, defense, power, xp = 0, wealth = 0, death_function=None):
-        self.max_hp = hp
-        self.hp = hp # vital energy
-        self.defense = defense # defense, important!
-        self.power = power # attack, important!
-        if wealth > 0:
-            self.wealth = random.randrange(wealth)
-        else: self.wealth = 0
-        self.xp=xp
-        self.death_function = death_function
+    def __init__(self, resources):
+        '''
+        Taken from the definition file:
+[MONSTER TEMPLATE]
+# characteristics
+AT= (Attack - Fix value)
+PA= (Pary - Block point - Fix value)
+HP= (EV - Health Points / Energie vitale)
+MP= (EA - Magical Points / Energie astrale / Could be 0)
+CO= (Courage)
+WI= (Wisdom)
+CH= (Charisma)
+AG= (Agility)
+ST= (Strength)
+# Equipment
+PR= (Protection Points)
+HI= (Hit points - range ex 2-8)
+# when dead, what do we get
+XP = (Experiecne - Range)
+wealth = (max number that is received)
+# functions
+magical_function=XX
+death_function=monster_death
+        '''
+        self.max_hp = getInt(resources,'hp') # vital energy
+        self.hp = self.max_hp # current vital energy
+        self.max_mp = getInt(resources,'mp') # astral energy
+        self.mp = self.max_mp # current astral energy
+
+        self.courage = getInt(resources,'co')
+        self.wisdom = getInt(resources,'wi')
+        self.charisma = getInt(resources,'ch')
+        self.agility = getInt(resources,'ag')
+        self.strength = getInt(resources,'st')
+
+        self.attack = getInt(resources,'at')
+        self.parry = getInt(resources,'pa')
+
+        self.base_protection = getInt(resources,'pr')
+        self.base_hit = (0,0)
+        if 'hi' in resources:
+            self.base_hit = ast.literal_eval(resources['hi'])
+        self.wealth = 0
+        if getInt(resources,'wealth') > 0:
+            self.wealth = random.randrange(getInt(resources,'wealth'))
+
+        self.xp = getInt(resources,'xp')
+        self.death_function = self.magical_function = None
+        if 'death_function' in resources:
+            self.death_function = getattr(__main__,resources['death_function'])
+        if 'magical_function' in resources:
+            self.magical_function = getattr(__main__,resources['magical_function'])
+
+        self.gender='monster'
 
         # Naheulbleuk rules - Player setting!
-        self.courage = 0 # courage
-        self.dexterity = 0 #adresse
-        self.strength = 0 #force
-        self.wisdom = 0
-        self.charisma = 0
         self.origin = ''
         self.work = ''
-        self.mp = 0 # current astral energy
-        self.max_mp = 0 # astral energy
-        self.destiny_point = 3 # Number of lifes
         self.competencies = []
-
+        self.destiny_points = 3 # Number of lifes
+        self.name=''
 
     def _player_roll(self):
         self.courage = random.randrange(7,13)
         self.wisdom = random.randrange(7,13)
         self.charisma = random.randrange(7,13)
-        self.dexterity = random.randrange(7,13)
+        self.agility = random.randrange(7,13)
         self.strength = random.randrange(7,13)
         self.xp = 0
+        if random.randint(1,2) == 1:
+            self.gender='male'
+            self.name=random.choice(MALE_NAME_LIST)+" of "+random.choice(COUNTRY_NAME_LIST)+random.choice(COUNTRY_NAME_LIST).lower()
+        else:
+            self.gender='female'
+            self.name=random.choice(FEMALE_NAME_LIST)+" of "+random.choice(COUNTRY_NAME_LIST)+random.choice(COUNTRY_NAME_LIST).lower()
 
     def _rollOrigin(self):
         origins = []
@@ -198,25 +244,25 @@ class Fighter:
             origins.append(ORIGIN_LIST[1])
         if self.courage >= 11 and self.strength>=12:
             origins.append(ORIGIN_LIST[2])
-        if self.wisdom >= 11 and self.charisma>=12 and self.dexterity >=12 and self.strength<=12:
+        if self.wisdom >= 11 and self.charisma>=12 and self.agility >=12 and self.strength<=12:
             origins.append(ORIGIN_LIST[3])
-        if self.charisma >= 10 and self.dexterity >=11:
+        if self.charisma >= 10 and self.agility >=11:
             origins.append(ORIGIN_LIST[4])
-        if self.charisma >= 12 and self.dexterity >=10 and self.strength <= 11:
+        if self.charisma >= 12 and self.agility >=10 and self.strength <= 11:
             origins.append(ORIGIN_LIST[5])
-        if self.wisdom >= 12 and self.dexterity >=13:
+        if self.wisdom >= 12 and self.agility >=13:
             origins.append(ORIGIN_LIST[6])
         if self.wisdom <= 8 and self.charisma<=10 and self.strength>=12:
             origins.append(ORIGIN_LIST[7])
-        if self.wisdom <= 10 and self.dexterity<=11 and self.strength>=12:
+        if self.wisdom <= 10 and self.agility<=11 and self.strength>=12:
             origins.append(ORIGIN_LIST[8])
         if self.courage <= 10 and self.wisdom<=10 and self.charisma<=8 and self.strength<=9:
             origins.append(ORIGIN_LIST[9])
-        if self.wisdom<=9 and self.charisma<=10 and self.dexterity<=11 and self.strength>=13:
+        if self.wisdom<=9 and self.charisma<=10 and self.agility<=11 and self.strength>=13:
             origins.append(ORIGIN_LIST[10])
         if self.courage>=12 and self.wisdom>=10 and self.strength<=10:
             origins.append(ORIGIN_LIST[11])
-        if self.wisdom>=10 and self.dexterity>=13 and self.strength<=8:
+        if self.wisdom>=10 and self.agility>=13 and self.strength<=8:
             origins.append(ORIGIN_LIST[12])
         if len(origins) == 0:
             self.origin = ORIGIN_LIST[0]
@@ -227,9 +273,9 @@ class Fighter:
         works = []
         if self.courage>=12 and self.strength>= 12:
             works.append(WORK_LIST[0])
-        if self.dexterity>=13:
+        if self.agility>=13:
             works.append(WORK_LIST[1])
-        if self.dexterity>=12:
+        if self.agility>=12:
             works.append(WORK_LIST[2])
         if self.charisma>=12:
             works.append(WORK_LIST[3])
@@ -237,15 +283,15 @@ class Fighter:
             works.append(WORK_LIST[4])
         if self.courage>=12 and self.wisdom>= 10 and self.charisma>=11 and self.strength>=9:
             works.append(WORK_LIST[5])
-        if self.charisma>=10 and self.dexterity>= 10:
+        if self.charisma>=10 and self.agility>= 10:
             works.append(WORK_LIST[6])
-        if self.charisma>=12 and self.dexterity>= 11:
+        if self.charisma>=12 and self.agility>= 11:
             works.append(WORK_LIST[7])
         if self.wisdom>=12 and self.charisma>=11:
             works.append(WORK_LIST[8])
-        if self.dexterity >= 11:
+        if self.agility >= 11:
             works.append(WORK_LIST[9])
-        if self.courage>=11 and self.dexterity >= 11:
+        if self.courage>=11 and self.agility >= 11:
             works.append(WORK_LIST[10])
         if self.wisdom>=10 and self.charisma >= 11:
             works.append(WORK_LIST[11])
@@ -257,8 +303,8 @@ class Fighter:
     def _modifyOriginalCharacteristics(self):
         if self.origin in (ORIGIN_LIST[1], ORIGIN_LIST[7]): # Barbare, Orc
             self.max_hp = 35
-            self.power += 1
-            self.defense -= 1
+            self.attack += 1
+            self.parry -= 1
         if self.origin in (ORIGIN_LIST[2], ORIGIN_LIST[8]): # Dwarf, half orc
             self.max_hp = 35
         if self.origin in (ORIGIN_LIST[3], ORIGIN_LIST[5], ORIGIN_LIST[6], ORIGIN_LIST[11]) : # High elf or Sylvan, Dark, hobbit
@@ -269,12 +315,12 @@ class Fighter:
             self.max_hp = 20
         if self.origin == ORIGIN_LIST[10]: # Ogre
             self.max_hp = 20
-            self.power += 1
-            self.defense -= 1
+            self.attack += 1
+            self.parry -= 1
         if self.origin == ORIGIN_LIST[11]: # Gnome
             self.max_hp = 15
-            self.power += 2
-            self.defense -= 2
+            self.attack += 2
+            self.parry -= 2
 
         # Now for Work...
         if self.work in (WORK_LIST[0]):
@@ -284,13 +330,14 @@ class Fighter:
                 self.max_hp += 5
         # TODO!!!
 
+
     def _addCompetencies(self):
         pass
 
     def playerBirth(self):
-        self.power = 8
-        self.defense = 10
-        self.hp = 30
+        self.attack = 8
+        self.parry = 10
+        self.max_hp = self.hp = 30 # default
         while (self.work== '' or self.work == 'unemployed'):
             self._player_roll()
             self._rollOrigin()
@@ -298,21 +345,42 @@ class Fighter:
         self._modifyOriginalCharacteristics()
         self._addCompetencies()
         self.wealth = random.randrange(2,12) * 10
+        self.hp = self.max_hp
 
     @property
-    def equipmentProtection(self):
+    def protection(self):
         if self.owner == GameGlobals.player:
-            return 0 + sum(equipment.power_bonus for equipment in get_all_equipped(self.owner))
+            return self.base_protection + sum(equipment.protection_bonus for equipment in Equipment.get_all_equipped(self.owner))
+        else: return self.base_protection
+
+    @property
+    def hit(self):
+        if self.owner == GameGlobals.player:
+            return (self.base_hit[0] + sum(equipment.attack_bonus[0] for equipment in Equipment.get_all_equipped(self.owner)),self.base_hit[1] + sum(equipment.attack_bonus[1] for equipment in Equipment.get_all_equipped(self.owner)))
+        else: return self.base_hit
 
     @property
     def magical_resistance(self):
         return int((self.courage + self.wisdom + self.strength)/3)
 
+    @property
+    def phy_magic(self):
+        return int((self.agility + self.wisdom)/2)
+
+    @property
+    def psy_magic(self):
+        return int((self.charisma + self.wisdom)/2)
+
     def print_stat(self):
-        string = "Courage: "+str(self.courage)+"-" +"Wisdom: "+str(self.wisdom)+"-" +"Charisma: "+str(self.charisma)+"-" +"Dexterity: "+str(self.dexterity)+"-" +"Strength: "+str(self.strength)
-        string = string + "-" + "Origin: "+ str(self.origin) + "-" + "Work: "+str(self.work)
-        string = string + "-" + "Magical Resistance " + str(self.magical_resistance)
-        string = string + "-" + "Wealth " + str(self.wealth)
+        string = "Courage: "+str(self.courage)+"-" +"Wisdom: "+str(self.wisdom)+"-" +"Charisma: "+str(self.charisma)+"-" +"agility: "+str(self.agility)+"-" +"Strength: "+str(self.strength)
+        if self.origin != '':
+            string = string + "-" + "Origin: "+ str(self.origin) + "-" + "Work: "+str(self.work)
+        string = string + "-" + "HP/MP " + str(self.hp) + "/" + str(self.mp)
+        string = string + "-" + "Magical: Phys/Psy/Res " + str(self.phy_magic)+ "/" + str(self.psy_magic)+ "/" + str(self.magical_resistance)
+        string = string + "-" + "Wealth/XP " + str(self.wealth) + "/" + str(self.xp)
+        string = string + "-" + "Attack/Pary " + str(self.attack) + "/" + str(self.parry)
+        string = string + "-" + "Hit/Protection " + str(self.hit) + "/" + str(self.protection)
+
         print(string)
         return(string)
 
@@ -326,10 +394,10 @@ class Fighter:
                 if function is not None:
                     function(self.owner)
 
-    def attack(self, target):
+    def fight(self, target):
         '''
         #a simple formula for attack damage
-        damage = self.power - target.fighter.defense
+        damage = self.attack - target.fighter.parry
 
         if damage > 0:
             #make the target take some damage
@@ -358,21 +426,37 @@ class Fighter:
         '''
         Fighter A is attacking fighter B.
         '''
-        attackScore = random.randrange(1,20)
-        if (attackScore <= fighterA.power):
+        attackScore = random.randint(1,20)
+        if attackScore == 1:
+            # critical attack - TODO
+            pass
+        elif attackScore == 20:
+            # critical failure - TODO
+            pass
+        elif (attackScore <= fighterA.attack):
             # success
-            GameGlobals.messageBox.print(fighterA.owner.name.capitalize() + ' attacks ' + fighterB.owner.name + ' with success [SCORE:' + str(attackScore) + '/POWER:'+str(fighterA.power)+']', COLOR_ORANGE)
-            defenseScore = random.randrange(1,20)
-            if (defenseScore <= fighterB.defense):
-                GameGlobals.messageBox.print(fighterB.owner.name.capitalize() + ' successfully avoid ' + fighterA.owner.name + ' blow [SCORE:' + str(defenseScore) + '/DEFENSE:'+str(fighterB.defense)+']', COLOR_ORANGE)
+            GameGlobals.messageBox.print(fighterA.owner.name.capitalize() + ' attacks ' + fighterB.owner.name + ' with success [SCORE:' + str(attackScore) + '/attack:'+str(fighterA.attack)+']', COLOR_ORANGE)
+            parryScore = random.randint(1,20)
+            if parryScore == 1:
+                # critical parry - TODO
+                pass
+            elif parryScore == 20:
+                # critical failure - TODO
+                pass
+            elif (parryScore <= fighterB.parry):
+                GameGlobals.messageBox.print(fighterB.owner.name.capitalize() + ' successfully avoid ' + fighterA.owner.name + ' blow [SCORE:' + str(parryScore) + '/parry:'+str(fighterB.parry)+']', COLOR_ORANGE)
             else:
-                GameGlobals.messageBox.print(fighterB.owner.name.capitalize() + ' cannot avoid ' + fighterA.owner.name + ' blow [SCORE:' + str(defenseScore) + '/DEFENSE:'+str(fighterB.defense)+']', COLOR_ORANGE)
-                damage = random.randrange(1,10) # to update
-                GameGlobals.messageBox.print(fighterB.owner.name.capitalize() + ' takes from ' + fighterA.owner.name + ' ' + str(damage) + ' damage', COLOR_ORANGE)
-                fighterB.take_damage(damage)
+                GameGlobals.messageBox.print(fighterB.owner.name.capitalize() + ' cannot avoid ' + fighterA.owner.name + ' blow [SCORE:' + str(parryScore) + '/parry:'+str(fighterB.parry)+']', COLOR_ORANGE)
+                damage = random.randint(fighterA.hit[0], fighterA.hit[1])
+                actualDamage = damage-fighterB.protection
+                if actualDamage >0:
+                    GameGlobals.messageBox.print(fighterB.owner.name.capitalize() + ' takes from ' + fighterA.owner.name + ' ' + str(actualDamage) + ' damage (original: '+str(damage)+')' , COLOR_ORANGE)
+                    fighterB.take_damage(actualDamage)
+                else:
+                    GameGlobals.messageBox.print(fighterA.owner.name.capitalize() + ' damages have been nulified by his protection [protection: ' + str(fighterB.protection) + ' - original damage: '+str(damage)+']' , COLOR_ORANGE)
         else:
             # attack failure
-            GameGlobals.messageBox.print(fighterA.owner.name.capitalize() + ' attacks ' + fighterB.owner.name + ' but fails [SCORE:' + str(attackScore) + '/POWER:'+str(fighterA.power)+']', COLOR_ORANGE)
+            GameGlobals.messageBox.print(fighterA.owner.name.capitalize() + ' attacks ' + fighterB.owner.name + ' but fails [SCORE:' + str(attackScore) + '/attack:'+str(fighterA.attack)+']', COLOR_ORANGE)
 
 
     def heal(self, amount):
@@ -392,7 +476,7 @@ class BasicMonster:
             monster.move_towards(GameGlobals.player.x, GameGlobals.player.y)
         #close enough, attack! (if the GameGlobals.player is still alive.)
         elif distance < 2 and GameGlobals.player.fighter.hp > 0:
-            monster.fighter.attack(GameGlobals.player)
+            monster.fighter.fight(GameGlobals.player)
 
 class ConfusedMonster:
     #AI for a temporarily confused monster (reverts to previous AI after a while).
@@ -427,7 +511,7 @@ def player_move_or_attack(dx, dy):
 
     #attack if target found, move otherwise
     if target is not None:
-        GameGlobals.player.fighter.attack(target)
+        GameGlobals.player.fighter.fight(target)
     else:
         GameGlobals.player.move(dx, dy)
         newRoomName = GameGlobals.levelmap.getRoomOfTile(GameGlobals.player.x, GameGlobals.player.y).name
@@ -478,6 +562,12 @@ def closest_monster(max_range):
                 closest_enemy = object
                 closest_dist = dist
     return closest_enemy
+
+
+def getInt(resource, key, min=0, max=0):
+    if key in resource:
+        return int(resource[str(key)])
+    return min
 
 def main():
     pass

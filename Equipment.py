@@ -8,14 +8,19 @@
 # Copyright:   (c) Piccool 2013
 # Licence:     <your licence>
 #-------------------------------------------------------------------------------
-import GameGlobals
+import GameGlobals, ast
 
 class Equipment:
     #an object that can be equipped, yielding bonuses. automatically adds the Item component.
     def __init__(self, slot, characteristics):
         self.slot = slot
         self.is_equipped = False
-        self.characteristics = characteristics
+        self.attack_bonus = (0,0)
+        self.protection_bonus = 0
+        if "attack_bonus" in characteristics:
+            self.attack_bonus = ast.literal_eval(characteristics["attack_bonus"])
+        if "protection_bonus" in characteristics:
+            self.protection_bonus = int(characteristics["protection_bonus"])
 
     def toggle_equip(self):  #toggle equip/dequip status
         if self.is_equipped:
@@ -47,9 +52,9 @@ def get_equipped_in_slot(slot):  #returns the equipment in a slot, or None if it
     return None
 
 def get_all_equipped(obj):  #returns a list of equipped items
-    if obj == player:
+    if obj == GameGlobals.player:
         equipped_list = []
-        for item in inventory:
+        for item in GameGlobals.inventory:
             if item.equipment and item.equipment.is_equipped:
                 equipped_list.append(item.equipment)
         return equipped_list

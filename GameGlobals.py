@@ -10,7 +10,7 @@
 #-------------------------------------------------------------------------------
 
 messageBox = None
-allButtons = None # UI ZONES
+
 entireWindowSurface = None # Spritable zones
 mainClock = None
 

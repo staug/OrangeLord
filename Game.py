@@ -9,7 +9,7 @@
 # Licence:     <your licence>
 #-------------------------------------------------------------------------------
 
-import pygame, pygbutton, shelve, configparser, GameGlobals, sys
+import pygame, shelve, configparser, GameGlobals, sys
 import pygame._view
 
 from pygame.locals import *
@@ -22,79 +22,41 @@ from Equipment import *
 
 import __main__
 
-def AAfilledRoundedRect(surface,rect,color,radius=0.4, width = 0):
-
-    """
-    AAfilledRoundedRect(surface,rect,color,radius=0.4)
-
-    surface : destination
-    rect    : rectangle
-    color   : gb or rgba
-    radius  : 0 <= radius <= 1
-    """
-
-    rect         = Rect(rect)
-    color        = Color(*color)
-    alpha        = color.a
-    color.a      = 0
-    pos          = rect.topleft
-    rect.topleft = 0,0
-    rectangle    = pygame.Surface(rect.size,SRCALPHA)
-
-    circle       = pygame.Surface([min(rect.size)*3]*2,SRCALPHA)
-    pygame.draw.ellipse(circle,(0,0,0),circle.get_rect(),0)
-    circle       = pygame.transform.smoothscale(circle,[int(min(rect.size)*radius)]*2)
-
-    radius              = rectangle.blit(circle,(0,0))
-    radius.bottomright  = rect.bottomright
-    rectangle.blit(circle,radius)
-    radius.topright     = rect.topright
-    rectangle.blit(circle,radius)
-    radius.bottomleft   = rect.bottomleft
-    rectangle.blit(circle,radius)
-
-    rectangle.fill((0,0,0),rect.inflate(-radius.w,0))
-    rectangle.fill((0,0,0),rect.inflate(0,-radius.h))
-
-    rectangle.fill(color,special_flags=BLEND_RGBA_MAX)
-    rectangle.fill((255,255,255,alpha),special_flags=BLEND_RGBA_MIN)
-
-    return surface.blit(rectangle,pos)
-
-
 
 class MessageBox:
     '''
     The part of teh screen taht is responsible for writing status messages
     '''
-    def __init__(self, surface, background):
-        self.surface = surface
-        self.background = background
+    def __init__(self):
         self.font = pygame.font.Font(GAME_FONT, 14)
         self.messages=[]
-        self.nbMessages = 12
-        self.textRect = pygame.Rect(DISP_SEP_WIDTH, DISP_PLAYABLE_HEIGHT + 50, DISP_MESSAGE_WIDTH, DISP_MESSAGE_HEIGHT)
+        self.nbMessages = 10
+        self.textRect = pygame.Rect(20, DISP_PLAYABLE_HEIGHT + 70, DISP_MESSAGE_WIDTH, DISP_MESSAGE_HEIGHT)
+        self.textSurface = gameSurface.subsurface(self.textRect)
+        # create a copy of the background
+        self.saveSurface = self.textSurface.copy()
 
     def print(self, aMessage, color=(255,255,255)):
         #Erase previous
-        self.surface.fill(self.background, self.textRect)
-        self.messages.append({'txt':aMessage,'color':color})
+        self.textSurface.blit(self.saveSurface, (0,0))
 
+        if (len(aMessage) < 100):
+            self.messages.append({'txt':aMessage,'color':color})
+        else:
+            self.messages.append({'txt':aMessage[:125],'color':color})
+            self.messages.append({'txt':aMessage[125:],'color':color})
+            if len(self.messages) > self.nbMessages:
+                self.messages = self.messages[1:]
         if len(self.messages) > self.nbMessages:
             self.messages = self.messages[1:]
+
         fontHeight = self.font.get_height()
-
-        surfaces = [self.font.render(ln['txt'], 1, ln['color']) for ln in self.messages]
-        # can't pass background to font.render, because it doesn't respect the alpha
-
-        maxwidth = max([s.get_width() for s in surfaces])
-        result = pygame.Surface((maxwidth, len(self.messages)*fontHeight), pygame.SRCALPHA)
+        surfaces = [self.font.render(ln['txt'], True, ln['color'], (80,22,22)) for ln in self.messages]
 
         for i in range(len(self.messages)):
-            result.blit(surfaces[i], (0,i*fontHeight))
-        self.surface.blit(result,self.textRect)
+            self.textSurface.blit(surfaces[i], (0,i*fontHeight))
+        pygame.display.update(self.textSurface.get_rect())
 
-        pygame.display.update(self.surface.get_rect())
 
 def target_objects(maxDistanceFromPlayer=None, rangeRadius=1, limitToOne=True, includesPlayer=False):
     '''
@@ -225,7 +187,9 @@ def render_bar(x, y, total_width, total_height, name, value, maximum, bar_color,
     ''' The bar is located at x,y part of the screen
     '''
     #render a bar (HP, experience, etc). first calculate the width of the bar
-    bar_width = max(1, int(float(value) / maximum * total_width))
+    bar_width = 1
+    if maximum>0:
+        bar_width = max(1, int(float(value) / maximum * total_width))
 
     #render the background first
     totalBar = pygame.Surface((total_width, total_height))
@@ -242,6 +206,21 @@ def render_bar(x, y, total_width, total_height, name, value, maximum, bar_color,
     fontSurface = font.render(name + ': ' + str(value) + '/' + str(maximum),1,(255,255,255))
     gameSurface.blit(fontSurface, (x+10,y+int(float(total_height-font.get_height())/2)))
 
+def print_player_char():
+    font = pygame.font.Font(GAME_FONT, 15)
+    gameSurface.blit(font.render(str(GameGlobals.player.fighter.name),1,(255,255,255)), (890, 34))
+    gameSurface.blit(font.render(str(GameGlobals.player.fighter.origin),1,(255,255,255)), (890, 34+font.get_height()))
+    gameSurface.blit(font.render(str(GameGlobals.player.fighter.work),1,(255,255,255)), (890, 34+font.get_height()*2))
+    #display text with the values
+    gameSurface.blit(font.render(str(GameGlobals.player.fighter.courage),1,(255,255,255)), (RECT_CHAR_CO.x, RECT_CHAR_CO.y))
+    gameSurface.blit(font.render(str(GameGlobals.player.fighter.charisma),1,(255,255,255)), (RECT_CHAR_CH.x, RECT_CHAR_CH.y))
+    gameSurface.blit(font.render(str(GameGlobals.player.fighter.wisdom),1,(255,255,255)), (RECT_CHAR_WI.x, RECT_CHAR_WI.y))
+    gameSurface.blit(font.render(str(GameGlobals.player.fighter.attack),1,(255,255,255)), (RECT_CHAR_AT.x, RECT_CHAR_AT.y))
+    gameSurface.blit(font.render(str(GameGlobals.player.fighter.strength),1,(255,255,255)), (RECT_CHAR_ST.x, RECT_CHAR_ST.y))
+    gameSurface.blit(font.render(str(GameGlobals.player.fighter.agility),1,(255,255,255)), (RECT_CHAR_AG.x, RECT_CHAR_AG.y))
+    gameSurface.blit(font.render(str(GameGlobals.player.fighter.parry),1,(255,255,255)), (RECT_CHAR_PA.x, RECT_CHAR_PA.y))
+
+
 def system_init():
 ##    global messageBox, allButtons # UI ZONES
     global gameSurface # Spritable zones
@@ -251,19 +230,10 @@ def system_init():
     pygame.init()
     mainClock = pygame.time.Clock()
     gameSurface = pygame.display.set_mode((DISP_GAME_WIDTH,DISP_GAME_HEIGHT))
-    pygame.display.set_caption('Orange Lord Game v0.7')
-
-    # Prepare the message bar
-    GameGlobals.messageBox = MessageBox(gameSurface,(0,0,0))
-
-    # Prepare the buttons
-    buttonQuit = pygbutton.PygButton((DISP_GAME_WIDTH-DISP_SEP_WIDTH-DISP_BUTTON_WIDTH, DISP_SEP_HEIGHT, DISP_BUTTON_WIDTH, DISP_BUTTON_HEIGHT), 'Quit', font=pygame.font.Font(GAME_FONT, 14))
-    buttonInv = pygbutton.PygButton((DISP_GAME_WIDTH-DISP_SEP_WIDTH-DISP_BUTTON_WIDTH, DISP_SEP_HEIGHT*2+DISP_BUTTON_HEIGHT, DISP_BUTTON_WIDTH, DISP_BUTTON_HEIGHT), 'Inv', font=pygame.font.Font(GAME_FONT, 14))
-    buttonStat = pygbutton.PygButton((DISP_GAME_WIDTH-DISP_SEP_WIDTH-DISP_BUTTON_WIDTH, DISP_SEP_HEIGHT*3+DISP_BUTTON_HEIGHT*2, DISP_BUTTON_WIDTH, DISP_BUTTON_HEIGHT), 'Stat', font=pygame.font.Font(GAME_FONT, 14))
-    GameGlobals.allButtons = (buttonInv, buttonQuit, buttonStat)
+    pygame.display.set_caption('Orange Lord Game v0.8')
 
 def main_menu():
-    mainMenuImage = pygame.image.load('resources/images/the_orange_knight_by_jouste.jpg')
+    mainMenuImage = pygame.image.load('resources/images/the_orange_knight_by_jouste.jpg').convert_alpha()
 
     while True:
         #show the background image, at twice the regular console resolution
@@ -293,14 +263,11 @@ def main_menu():
             pygame.quit()
             sys.exit()
 
-def new_game(level):
-    #global levelmap, levelobjects, gameState, player, inventory
-
+def new_game(level, reroll_player=True):
     config = configparser.RawConfigParser()
     config.read('resources/definitions.ini')
 
-
-    GameGlobals.inventory = []
+    if reroll_player: GameGlobals.inventory = []
     GameGlobals.levelobjects = []
 
 
@@ -324,7 +291,7 @@ def new_game(level):
             equipment = None
             listing = config._sections[itemName]
             if config.has_option(itemName, 'equipment'):
-                equipment = Equipment(config.get(itemName, 'equipment'), config.get(itemName, 'equipment_modifier'))
+                equipment = Equipment(config.get(itemName, 'equipment'), config._sections[itemName])
                 item = Object(0, 0, itemName, config._sections[itemName], equipment = equipment)
                 GameGlobals.levelobjects.append(item)
             else:
@@ -340,7 +307,7 @@ def new_game(level):
         monsterQty = int((monster.split(','))[1])
 
         for i in range(monsterQty):
-            fighter_component = Fighter(hp=config.getint(monsterName, 'hp'), defense=config.getint(monsterName, 'defense'), power=config.getint(monsterName, 'power'), xp=config.getint(monsterName, 'xp'), wealth=config.getint(monsterName, 'wealth'), death_function = getattr(__main__,config.get(monsterName, 'death_function')))
+            fighter_component = Fighter(config._sections[monsterName])
             ai_component = BasicMonster()
             monster = Object(0,0, monsterName, config._sections[monsterName], blocks=True, fighter=fighter_component, ai=ai_component)
             GameGlobals.levelobjects.append(monster)
@@ -360,13 +327,15 @@ def new_game(level):
     GameGlobals.levelobjects.append(ObjectFighter.Object(GameGlobals.levelmap.pos_stairup[0], GameGlobals.levelmap.pos_stairup[1], 'Stair going up', {'image_file':'resources/images/abigaba_nethack_bis.png','image_animated':'none','image_size_x':'32','image_size_y':'32','image_top':'(415,670)'}))
     GameGlobals.levelobjects.append(ObjectFighter.Object(GameGlobals.levelmap.pos_stairdown[0], GameGlobals.levelmap.pos_stairdown[1], 'Stair going down', {'image_file':'resources/images/abigaba_nethack_bis.png','image_animated':'none','image_size_x':'32','image_size_y':'32','image_top':'(447,670)'}))
 
-
     # PLAYER
-    fighter_component = Fighter(hp=30, defense=2, power=5, death_function=player_death)
-    fighter_component.playerBirth()
-    GameGlobals.player = Object(0,0, 'player', config._sections['player'], blocks=True, fighter = fighter_component)
-    GameGlobals.player.setLocation(GameGlobals.levelmap.pos_stairup)
-    GameGlobals.levelobjects.append(GameGlobals.player)
+    if reroll_player:
+        fighter_component = Fighter(config._sections['player'])
+        fighter_component.playerBirth()
+        GameGlobals.player = Object(0,0, 'player', config._sections['player'], blocks=True, fighter = fighter_component)
+        GameGlobals.player.setLocation(GameGlobals.levelmap.pos_stairup)
+        GameGlobals.levelobjects.append(GameGlobals.player)
+
+
 
 def play():
     global game_state
@@ -379,14 +348,17 @@ def play():
     backgroundImage = pygame.image.load('resources/images/backgroundImage.png').convert()
     gameSurface.blit(backgroundImage, (0,0))
 
+    # Prepare the message bar
+    GameGlobals.messageBox = MessageBox()
+
     # Prepare drawing
     GameGlobals.entireWindowSurface = pygame.Surface((GAME_NB_TILE_X*IMG_SIZE_TILE_X, GAME_NB_TILE_Y*IMG_SIZE_TILE_Y))
-    GameGlobals.messageBox.print("Welcome to Orange Lord Domain....", color=COLOR_RED)
+    GameGlobals.messageBox.print("Welcome in the Orange Lord Domain....", color=COLOR_RED)
 
     # Draw the world
     GameGlobals.levelmap.draw()
-    for button in GameGlobals.allButtons:
-        button.draw(gameSurface)
+#    for button in GameGlobals.allButtons:
+#        button.draw(gameSurface)
 
     # STATE VARIABLE
     player_action = None
@@ -422,8 +394,10 @@ def play():
         playableSurface = GameGlobals.entireWindowSurface.subsurface(getPlayableRect(DISP_PLAYABLE_WIDTH, DISP_PLAYABLE_HEIGHT))
         gameSurface.blit(playableSurface,(10,10))
 
-        #draw health bar
-        render_bar(DISP_GAME_WIDTH-DISP_SEP_WIDTH-DISP_BUTTON_WIDTH, DISP_SEP_HEIGHT*4+DISP_BUTTON_HEIGHT*3, DISP_BUTTON_WIDTH, DISP_BUTTON_HEIGHT, 'HP', GameGlobals.player.fighter.hp, GameGlobals.player.fighter.max_hp, (200,88,106))
+        #draw health & magic bar
+        render_bar(RECT_HP.x, RECT_HP.y, RECT_HP.w, RECT_HP.h, 'HP', GameGlobals.player.fighter.hp, GameGlobals.player.fighter.max_hp, (170,0,0), back_color=(222,135,135))
+        render_bar(RECT_MP.x, RECT_MP.y, RECT_MP.w, RECT_MP.h, 'MP', GameGlobals.player.fighter.mp, GameGlobals.player.fighter.max_mp, (0,102,128), back_color=(175,198,233))
+        print_player_char()
 
         pygame.display.update()
         mainClock.tick(40)
@@ -435,35 +409,26 @@ def handle_key():
     if game_state == 'playing':
         for event in pygame.event.get():
             # handle button
-            for button in GameGlobals.allButtons:
-                events = button.handleEvent(event)
-                if 'click' in events:
-                    if button.caption == 'Quit':
-                        return 'exit'
-                    if button.caption == 'Inv':
-                        eventHandledByButton = True
-                        chosen_item = inventory_menu('Use one of:')
-                        if chosen_item is not None:
-                            chosen_item.use()
-                    if button.caption == 'Quit':
-                        eventHandledByButton = True
-            if event.type == MOUSEBUTTONDOWN and not eventHandledByButton:
-                (clickx,clicky) = event.pos
-                playableleft = max(GameGlobals.player.x*IMG_SIZE_TILE_X - (DISP_PLAYABLE_WIDTH)/2,0)
-                playabletop = max(GameGlobals.player.y*IMG_SIZE_TILE_Y - (DISP_PLAYABLE_HEIGHT)/2,0)
-                if GameGlobals.player.y*IMG_SIZE_TILE_Y + (DISP_PLAYABLE_HEIGHT)/2 > GAME_NB_TILE_Y*IMG_SIZE_TILE_Y:
-                    playabletop = GAME_NB_TILE_Y*IMG_SIZE_TILE_Y - DISP_PLAYABLE_HEIGHT
-                if GameGlobals.player.x*IMG_SIZE_TILE_X + (DISP_PLAYABLE_WIDTH)/2 > GAME_NB_TILE_X*IMG_SIZE_TILE_X:
-                    playableleft = GAME_NB_TILE_X*IMG_SIZE_TILE_X - DISP_PLAYABLE_WIDTH
-                tilex = int((clickx-10 + playableleft)/IMG_SIZE_TILE_X)
-                tiley = int((clicky-10 + playabletop)/IMG_SIZE_TILE_Y)
+            if event.type == MOUSEBUTTONDOWN:
+                if RECT_QUIT.collidepoint(event.pos):
+                    return 'exit'
+                else:
+                    (clickx,clicky) = event.pos
+                    playableleft = max(GameGlobals.player.x*IMG_SIZE_TILE_X - (DISP_PLAYABLE_WIDTH)/2,0)
+                    playabletop = max(GameGlobals.player.y*IMG_SIZE_TILE_Y - (DISP_PLAYABLE_HEIGHT)/2,0)
+                    if GameGlobals.player.y*IMG_SIZE_TILE_Y + (DISP_PLAYABLE_HEIGHT)/2 > GAME_NB_TILE_Y*IMG_SIZE_TILE_Y:
+                        playabletop = GAME_NB_TILE_Y*IMG_SIZE_TILE_Y - DISP_PLAYABLE_HEIGHT
+                    if GameGlobals.player.x*IMG_SIZE_TILE_X + (DISP_PLAYABLE_WIDTH)/2 > GAME_NB_TILE_X*IMG_SIZE_TILE_X:
+                        playableleft = GAME_NB_TILE_X*IMG_SIZE_TILE_X - DISP_PLAYABLE_WIDTH
+                    tilex = int((clickx-10 + playableleft)/IMG_SIZE_TILE_X)
+                    tiley = int((clicky-10 + playabletop)/IMG_SIZE_TILE_Y)
 
-                names = [obj.name for obj in GameGlobals.levelobjects if (obj.x in (tilex, tilex-1, tilex+1) and obj.y in (tiley, tiley-1, tiley+1))]
-                names = ', '.join(names)
-                if names!=None and names != '':
-                    if GameGlobals.levelmap.getRoomOfTile(tilex, tiley) != None:
-                        names = names + ' in the ' + GameGlobals.levelmap.getRoomOfTile(tilex, tiley).name
-                    GameGlobals.messageBox.print("Around, " + names.capitalize())
+                    names = [obj.name for obj in GameGlobals.levelobjects if (obj.x in (tilex, tilex-1, tilex+1) and obj.y in (tiley, tiley-1, tiley+1))]
+                    names = ', '.join(names)
+                    if names!=None and names != '':
+                        if GameGlobals.levelmap.getRoomOfTile(tilex, tiley) != None:
+                            names = names + ' in the ' + GameGlobals.levelmap.getRoomOfTile(tilex, tiley).name
+                        GameGlobals.messageBox.print("Around, " + names.capitalize())
 
             # handle key
             if event.type == QUIT:
