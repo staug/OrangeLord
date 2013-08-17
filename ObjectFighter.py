@@ -223,6 +223,7 @@ death_function=monster_death
         self.competencies = []
         self.destiny_points = 3 # Number of lifes
         self.name=''
+        self.country = ''
 
     def _player_roll(self):
         self.courage = random.randrange(7,13)
@@ -231,12 +232,13 @@ death_function=monster_death
         self.agility = random.randrange(7,13)
         self.strength = random.randrange(7,13)
         self.xp = 0
+        self.country=(random.choice(COUNTRY_NAME_LIST)+random.choice(COUNTRY_NAME_LIST).lower())[0:12]
         if random.randint(1,2) == 1:
             self.gender='male'
-            self.name=random.choice(MALE_NAME_LIST)+" of "+random.choice(COUNTRY_NAME_LIST)+random.choice(COUNTRY_NAME_LIST).lower()
+            self.name=random.choice(MALE_NAME_LIST)[0:15]
         else:
             self.gender='female'
-            self.name=random.choice(FEMALE_NAME_LIST)+" of "+random.choice(COUNTRY_NAME_LIST)+random.choice(COUNTRY_NAME_LIST).lower()
+            self.name=random.choice(FEMALE_NAME_LIST)[0:15]
 
     def _rollOrigin(self):
         origins = []
@@ -487,7 +489,7 @@ class ConfusedMonster:
     def take_turn(self):
         if self.num_turns > 0:  #still confused...
             #move in a random direction, and decrease the number of turns confused
-            self.owner.move(randint(-1, 1), randint(-1, 1))
+            self.owner.move(random.randint(-1, 1), random.randint(-1, 1))
             self.num_turns -= 1
 
         else:  #restore the previous AI (this one will be deleted because it's not referenced anymore)

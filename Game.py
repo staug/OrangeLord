@@ -209,8 +209,9 @@ def render_bar(x, y, total_width, total_height, name, value, maximum, bar_color,
 def print_player_char():
     font = pygame.font.Font(GAME_FONT, 15)
     gameSurface.blit(font.render(str(GameGlobals.player.fighter.name),1,(255,255,255)), (890, 34))
-    gameSurface.blit(font.render(str(GameGlobals.player.fighter.origin),1,(255,255,255)), (890, 34+font.get_height()))
-    gameSurface.blit(font.render(str(GameGlobals.player.fighter.work),1,(255,255,255)), (890, 34+font.get_height()*2))
+    gameSurface.blit(font.render("Of " + str(GameGlobals.player.fighter.country),1,(255,255,255)), (890, 34+font.get_height()))
+    gameSurface.blit(font.render(str(GameGlobals.player.fighter.origin),1,(255,255,255)), (890, 34+font.get_height()*2))
+    gameSurface.blit(font.render(str(GameGlobals.player.fighter.work),1,(255,255,255)), (890, 34+font.get_height()*3))
     #display text with the values
     gameSurface.blit(font.render(str(GameGlobals.player.fighter.courage),1,(255,255,255)), (RECT_CHAR_CO.x, RECT_CHAR_CO.y))
     gameSurface.blit(font.render(str(GameGlobals.player.fighter.charisma),1,(255,255,255)), (RECT_CHAR_CH.x, RECT_CHAR_CH.y))

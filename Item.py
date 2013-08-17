@@ -126,7 +126,7 @@ def cast_confuse():
 
     #replace the monster's AI with a "confused" one; after some turns it will restore the old AI
     old_ai = monster.ai
-    monster.ai = ConfusedMonster(old_ai)
+    monster.ai = ObjectFighter.ConfusedMonster(old_ai)
     monster.ai.owner = monster  #tell the new component who owns it
     GameGlobals.messageBox.print('The eyes of the ' + monster.name + ' look vacant, as he starts to stumble around!')
 
