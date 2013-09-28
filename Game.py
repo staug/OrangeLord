@@ -463,6 +463,12 @@ def handle_key():
                     if chosen_item is not None:
                         chosen_item.drop()
 
+                if event.key == K_r:
+                #Range attack
+                    player_range_attack()
+
+
+
                 if event.key == K_c:
                 #Display the player characteristics
                     GameGlobals.messageBox.print(GameGlobals.player.fighter.print_stat(), COLOR_GREEN)

@@ -17,10 +17,13 @@ class Equipment:
         self.is_equipped = False
         self.attack_bonus = (0,0)
         self.protection_bonus = 0
+        self.range_attack = 0
         if "attack_bonus" in characteristics:
             self.attack_bonus = ast.literal_eval(characteristics["attack_bonus"])
         if "protection_bonus" in characteristics:
             self.protection_bonus = int(characteristics["protection_bonus"])
+        if "range_attack" in characteristics:
+            self.range_attack = int(characteristics["range_attack"])
 
     def toggle_equip(self):  #toggle equip/dequip status
         if self.is_equipped:
@@ -43,6 +46,14 @@ class Equipment:
         if not self.is_equipped: return
         self.is_equipped = False
         GameGlobals.messageBox.print('Dequipped ' + self.owner.name + ' from ' + self.slot + '.')
+
+def get_max_range_attack_equiped():
+    max_range = 0
+    for obj in GameGlobals.inventory:
+        if obj.equipment and obj.equipment.is_equipped:
+            if max_range < obj.equipment.range_attack:
+                max_range = obj.equipment.range_attack
+    return max_range
 
 
 def get_equipped_in_slot(slot):  #returns the equipment in a slot, or None if it's empty

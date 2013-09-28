@@ -423,6 +423,8 @@ death_function=monster_death
         # fighter B turn if not dead!
             Fighter._combatTurn(fighterB, fighterA)
 
+
+
     @staticmethod
     def _combatTurn(fighterA, fighterB):
         '''
@@ -525,6 +527,25 @@ def player_move_or_attack(dx, dy):
     # Test if a trap has been triggered
     GameGlobals.levelmap.testTrap()
 
+def player_range_attack():
+    '''
+    Function only called by the player:
+        * test if the player has a range weapon equipped
+        * test if the closest monster is in the range
+        * try to hit the closest monster
+    TODO: Manage the list of ammunitions
+    '''
+    max_range = Equipment.get_max_range_attack_equiped()
+    if max_range == 0:
+        GameGlobals.messageBox.print("No range weapon equipped.")
+        return
+    closest_enemy = closest_monster(max_range)
+    if closest_enemy is None:
+        GameGlobals.messageBox.print("No enemy that can be attacked in a range of " +str( max_range))
+        return
+    damage = random.randint(GameGlobals.player.fighter.hit[0], GameGlobals.player.fighter.hit[1])
+    GameGlobals.messageBox.print(closest_enemy.name.capitalize() + ' takes ' + str(damage) + ' damage(s) from range weapon' , COLOR_ORANGE)
+    closest_enemy.fighter.take_damage(damage)
 
 def player_death(self):
     #the game ended!
@@ -557,7 +578,10 @@ def closest_monster(max_range):
     closest_dist = max_range + 1  #start with (slightly more than) maximum range
 
     for object in GameGlobals.levelobjects:
-        if object.fighter and not object == GameGlobals.player and GameGlobals.levelmap.getTileAt(object.x, object.y).isVisible():
+#FIX: the is visible is always false!
+#        if object.fighter and not object == GameGlobals.player and GameGlobals.levelmap.getTileAt(object.x, object.y).isVisible():
+
+        if object.fighter and not object == GameGlobals.player:
             #calculate distance between this object and the GameGlobals.player
             dist = GameGlobals.player.distance_to(object)
             if dist < closest_dist:  #it's closer, so remember it
